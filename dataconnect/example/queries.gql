@@ -1,0 +1,30 @@
+mutation CreateNewCourse($name: String!, $academicYear: String!, $teacherId: UUID!) @auth(level: USER) {
+  course_insert(data: { name: $name, academicYear: $academicYear, teacherId: $teacherId })
+}
+
+query ListAllCourses @auth(level: PUBLIC) {
+  courses {
+    id
+    name
+    academicYear
+    teacher {
+      id
+      displayName
+      email
+    }
+  }
+}
+
+mutation EnrollStudentInCourse($studentId: UUID!, $courseId: UUID!) @auth(level: USER) {
+  courseEnrollment_insert(data: { studentId: $studentId, courseId: $courseId })
+}
+
+query ListAssignmentsForCourse($courseId: UUID!) @auth(level: USER) {
+  assignments(where: { courseId: { eq: $courseId } }) {
+    id
+    title
+    description
+    dueDate
+    maxScore
+  }
+}

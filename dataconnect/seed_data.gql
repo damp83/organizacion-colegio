@@ -1,0 +1,98 @@
+mutation SeedData @auth(level: USER) {
+  user_upsertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      displayName: "bobuser",
+      email: "bob@example.com",
+      createdAt: "2024-04-26T12:00:00Z"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      displayName: "aliceuser",
+      email: "alice@example.com",
+      createdAt: "2024-04-26T13:00:00Z"
+    }
+  ])
+  student_upsertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440000",
+      firstName: "Bob",
+      lastName: "User",
+      studentId: "12345",
+      email: "bob@example.com",
+      createdAt: "2024-04-26T12:00:00Z"
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440001",
+      firstName: "Alice",
+      lastName: "User",
+      studentId: "54321",
+      email: "alice@example.com",
+      createdAt: "2024-04-26T13:00:00Z"
+    }
+  ])
+  course_upsertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440000",
+      name: "Introduction to GraphQL",
+      academicYear: "2024",
+      createdAt: "2024-04-26T14:00:00Z",
+      teacherId: "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440001",
+      name: "Advanced Firebase",
+      academicYear: "2024",
+      createdAt: "2024-04-26T15:00:00Z",
+      teacherId: "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  courseEnrollment_upsertMany(data: [
+    {
+      studentId: "650e8400-e29b-41d4-a716-446655440000",
+      courseId: "750e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-26T16:00:00Z"
+    },
+    {
+      studentId: "650e8400-e29b-41d4-a716-446655440001",
+      courseId: "750e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-26T17:00:00Z"
+    }
+  ])
+  assignment_upsertMany(data: [
+    {
+      id: "850e8400-e29b-41d4-a716-446655440000",
+      title: "GraphQL Basics Quiz",
+      maxScore: 100,
+      dueDate: "2024-05-03T23:59:00Z",
+      createdAt: "2024-04-27T09:00:00Z",
+      courseId: "750e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "850e8400-e29b-41d4-a716-446655440001",
+      title: "Firebase Security Rules",
+      maxScore: 120,
+      dueDate: "2024-05-10T23:59:00Z",
+      createdAt: "2024-04-27T10:00:00Z",
+      courseId: "750e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  grade_upsertMany(data: [
+    {
+      studentId: "650e8400-e29b-41d4-a716-446655440000",
+      assignmentId: "850e8400-e29b-41d4-a716-446655440000",
+      score: 95,
+      feedback: "Excellent work!",
+      createdAt: "2024-05-01T10:00:00Z",
+      updatedAt: "2024-05-01T10:00:00Z"
+    },
+    {
+      studentId: "650e8400-e29b-41d4-a716-446655440001",
+      assignmentId: "850e8400-e29b-41d4-a716-446655440001",
+      score: 110,
+      feedback: "Great job!",
+      createdAt: "2024-05-08T11:00:00Z",
+      updatedAt: "2024-05-08T11:00:00Z"
+    }
+  ])
+}
