@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { initializeFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
 setLogLevel('debug');
@@ -299,7 +299,11 @@ async function initializeAppClient() {
     
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
+    // Config compatible con proxies/extensiones: forzar fallback a long polling y desactivar Fetch Streams
+    db = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false
+    });
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
