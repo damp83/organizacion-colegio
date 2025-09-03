@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Claustro - Centro Educativo</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>Gestión del Claustro</h1>
+            <div class="user-info">Cargando usuario...</div>
+        </header>
+
+        <div class="nav-bar">
+            <button id="btn-documentos" class="active">Documentos</button>
+            <button id="btn-calendario">Calendario</button>
+            <button id="btn-anuncios">Anuncios</button>
+            <button id="btn-agenda">Agenda</button>
+        </div>
+
+        <main>
+            <!-- Sección de Documentos -->
+            <section id="seccion-documentos" class="seccion active">
+                <h2>Documentos Institucionales</h2>
+                <div class="documentos-grid">
+                    <p class="loading-message">Cargando documentos...</p>
+                </div>
+                <button class="btn-accion" id="btn-subir-documento">Subir Documento</button>
+            </section>
+
+            <!-- Sección de Calendario -->
+            <section id="seccion-calendario" class="seccion">
+                <h2>Calendario de Actividades</h2>
+                <div class="calendar-nav">
+                    <button id="prev-month">&lt;</button>
+                    <span id="month-year"></span>
+                    <button id="next-month">&gt;</button>
+                </div>
+                <div class="calendar-grid" id="calendar-grid">
+                    <div class="day-header">Lun</div>
+                    <div class="day-header">Mar</div>
+                    <div class="day-header">Mié</div>
+                    <div class="day-header">Jue</div>
+                    <div class="day-header">Vie</div>
+                    <div class="day-header">Sáb</div>
+                    <div class="day-header">Dom</div>
+                </div>
+            </section>
+
+            <!-- Sección de Anuncios -->
+            <section id="seccion-anuncios" class="seccion">
+                <h2>Tablón de Anuncios</h2>
+                <form id="form-anuncio" class="anuncios-form">
+                    <textarea id="anuncio-texto" placeholder="Escribe tu anuncio aquí..." required></textarea>
+                    <button type="submit" class="btn-accion">Publicar Anuncio</button>
+                </form>
+                <div id="lista-anuncios">
+                    <p class="loading-message">Cargando anuncios...</p>
+                </div>
+            </section>
+
+            <!-- Sección de Agenda -->
+            <section id="seccion-agenda" class="seccion">
+                <h2>Agenda de Reuniones</h2>
+                <form id="form-agenda" class="agenda-form">
+                    <input type="hidden" id="agenda-id">
+                    <input type="text" id="agenda-titulo" placeholder="Título de la reunión" required>
+                    <input type="date" id="agenda-fecha" required>
+                    <select id="agenda-estado">
+                        <option value="Programada">Programada</option>
+                        <option value="En curso">En curso</option>
+                        <option value="Finalizada">Finalizada</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                    <input type="url" id="agenda-documento" placeholder="Enlace a documento (opcional)">
+                    <textarea id="agenda-descripcion" placeholder="Descripción de la reunión..." rows="4"></textarea>
+                    <button type="submit" class="btn-accion">Añadir Reunión</button>
+                </form>
+                <div id="lista-agenda" class="agenda-list">
+                    <p class="loading-message">Cargando reuniones...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para subir documentos -->
+    <div id="modal-documento" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-doc-title" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-doc-title">Subir Documento</h3>
+                <span class="close-btn-doc">&times;</span>
+            </div>
+            <form id="form-documento">
+                <div class="form-group">
+                    <label for="documento-titulo">Título:</label>
+                    <input type="text" id="documento-titulo" required>
+                </div>
+                <div class="form-group">
+                    <label for="documento-archivo">Archivo:</label>
+                    <input type="file" id="documento-archivo" required>
+                </div>
+                <button type="submit" class="btn-accion">Subir Documento</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación para eliminaciones -->
+    <div id="modal-confirmacion" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Eliminación</h3>
+                <span class="close-btn">&times;</span>
+            </div>
+            <p id="confirm-message">¿Estás seguro de que quieres eliminar este elemento?</p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="btn-cancelar" class="btn-accion eliminar">Cancelar</button>
+                <button id="btn-confirmar" class="btn-accion">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carga opcional de configuración local: crea config.js a partir de config.example.js -->
+    <script src="./config.js" defer></script>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

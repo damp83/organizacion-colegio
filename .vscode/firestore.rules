@@ -1,0 +1,22 @@
+rules_version = '2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      // Auth anónima cuenta como autenticada
+      return request.auth != null;
+    }
+
+    // Datos públicos de la app: lectura pública, escritura solo autenticados
+    match /artifacts/{appId}/public/data/{collection}/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Bloquear el resto por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
