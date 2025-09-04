@@ -8,8 +8,8 @@ window.__firebase_config = {
   projectId: "organizacioncentro-d3cd7",
   storageBucket: "organizacioncentro-d3cd7.firebasestorage.app",
   messagingSenderId: "1018056761030",
-  appId: "1:1018056761030:web:9912a01455832ac2bb81c7",
-  measurementId: "G-ZV16BRW2W2"
+  appId: "1:1018056761030:web:169222b13f897228bb81c7",
+  measurementId: "G-NQJQW02JDY"
 };
 
 // Si usas autenticación con token personalizado, descomenta y completa:
