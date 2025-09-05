@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithRedirect, getRedirectResult, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Reducir verbosidad de Firestore en consola
@@ -24,8 +24,7 @@ try {
 }
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 // Modo de autenticación preferido: 'redirect' elimina los warnings de popups
-// Forzar redirect para minimizar problemas popup; se puede cambiar a 'popup' manualmente
-const AUTH_MODE = 'redirect';
+const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'redirect';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -33,7 +32,6 @@ const sections = document.querySelectorAll('.seccion');
 const documentosGrid = document.querySelector('.documentos-grid');
 const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
-const btnLoginGuest = document.getElementById('btn-login-guest');
 const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
 
@@ -71,9 +69,9 @@ let auth, db, userId, isAdmin = false;
 let canWrite = false;
 let lastRedirectError = null;
 let lastRedirectResultChecked = false;
-// Eliminados lastLoginAttempt y triedPopupFallback para simplificar flujo sólo redirect
+let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
+let triedPopupFallback = false;
 const LS_REDIRECT_MARK = 'pendingRedirectProvider';
-let redirectAutoRetryDone = false;
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -536,32 +534,12 @@ async function initializeAppClient() {
 	}
 
 	onAuthStateChanged(auth, async (user) => {
-		console.log('[auth] state changed ->', user ? (user.isAnonymous ? 'anon' : (user.email || 'no-email')) : 'null');
 		// Si no hay usuario todavía y había un intento de redirect previo sin resultado, alerta diagnóstica
 		if (!user && lastRedirectResultChecked) {
 			const pending = localStorage.getItem(LS_REDIRECT_MARK);
 			if (pending) {
 				console.warn('[auth] Redirect marcado pero sin resultado. Posibles causas: dominios no autorizados, bloqueo cookies, política escolar.');
-				try { alert('No se completó el inicio de sesión. Reintentando automáticamente...'); } catch(_){ }
-				if (!redirectAutoRetryDone) {
-					redirectAutoRetryDone = true;
-					try {
-						await setPersistence(auth, browserLocalPersistence);
-						if (pending === 'google') {
-							const provider = new GoogleAuthProvider();
-							provider.setCustomParameters({ prompt: 'select_account' });
-							await signInWithRedirect(auth, provider);
-							return;
-						} else if (pending === 'microsoft') {
-							const provider = new OAuthProvider('microsoft.com');
-							provider.setCustomParameters({ prompt: 'select_account' });
-							await signInWithRedirect(auth, provider);
-							return;
-						}
-					} catch(retryErr) {
-						console.warn('[auth] Reintento redirect falló:', retryErr?.code, retryErr?.message);
-					}
-				}
+				try { alert('No se completó el inicio de sesión con Google/Microsoft. Revisa: (1) dominios autorizados en Firebase Auth, (2) sin bloqueadores/cookies, (3) vuelve a intentarlo.'); } catch(_){}
 				localStorage.removeItem(LS_REDIRECT_MARK);
 			}
 		}
@@ -590,7 +568,36 @@ async function initializeAppClient() {
 			seedDemoDataIfRequested();
 			// Resetear bandera de logout manual una vez haya sesión
 			didManualLogout = false;
-			// Fallback popup eliminado: sólo usamos redirect para evitar políticas que bloquean ventanas emergentes
+			// Fallback: si intentamos login con redirect y seguimos anónimos, probar popup una vez
+			if (user.isAnonymous && lastLoginAttempt && !triedPopupFallback) {
+				const elapsed = Date.now() - lastLoginAttempt.ts;
+				if (elapsed < 15000) {
+					if (lastLoginAttempt.provider === 'google') {
+						try {
+							triedPopupFallback = true;
+							console.log('[auth] Intentando fallback popup Google');
+							const provider = new GoogleAuthProvider();
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithPopup(auth, provider);
+							return; // esperar siguiente onAuthStateChanged
+						} catch (err) {
+							console.warn('[auth] Fallback popup Google falló:', err?.code, err?.message);
+						}
+					}
+					if (lastLoginAttempt.provider === 'microsoft') {
+						try {
+							triedPopupFallback = true;
+							console.log('[auth] Intentando fallback popup Microsoft');
+							const provider = new OAuthProvider('microsoft.com');
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithPopup(auth, provider);
+							return;
+						} catch (err) {
+							console.warn('[auth] Fallback popup Microsoft falló:', err?.code, err?.message);
+						}
+					}
+				}
+			}
 		} else {
 			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
 			if (didManualLogout) {
@@ -625,8 +632,16 @@ async function initializeAppClient() {
 				}
 				return;
 			}
-			// No iniciar anónimo inmediatamente; mostrar opción invitado para depurar login federado
-			if (btnLoginGuest) btnLoginGuest.style.display = 'inline-block';
+			if (initialAuthToken) {
+				try {
+					await signInWithCustomToken(auth, initialAuthToken);
+				} catch (error) {
+					console.error("Error al iniciar sesión con token personalizado:", error);
+					await signInAnonymously(auth);
+				}
+			} else {
+				await signInAnonymously(auth);
+			}
 		}
 	});
 }
@@ -644,43 +659,73 @@ if (btnLogout) {
 }
 
 if (btnLoginGoogle) {
-	btnLoginGoogle.addEventListener('click', async () => {
+	btnLoginGoogle.addEventListener('click', async (ev) => {
 		try {
-			console.log('[auth] Click Google -> preparando redirect');
 			didManualLogout = false;
-			await setPersistence(auth, browserLocalPersistence);
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
-			localStorage.setItem(LS_REDIRECT_MARK, 'google');
-			await signInWithRedirect(auth, provider);
-			console.log('[auth] signInWithRedirect (google) lanzado');
+			lastLoginAttempt = { provider: 'google', ts: Date.now() };
+			const forcePopup = ev.altKey; // Alt+Click para forzar popup (debug)
+			if (forcePopup) {
+				console.log('[auth] Forzando popup (Alt+Click)');
+				await signInWithPopup(auth, provider);
+				return;
+			}
+			if (AUTH_MODE === 'popup') {
+				try {
+					await signInWithPopup(auth, provider);
+				} catch (e) {
+					const code = e && e.code ? String(e.code) : '';
+					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'google');
+						await signInWithRedirect(auth, provider);
+					} else {
+						localStorage.setItem(LS_REDIRECT_MARK, 'google');
+						await signInWithRedirect(auth, provider);
+					}
+				}
+			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'google');
+				await signInWithRedirect(auth, provider);
+			}
 		} catch (e) {
-			console.error('Error al iniciar con Google (redirect puro)', e?.code, e?.message);
+			console.error('Error al iniciar con Google', e);
 		}
 	});
 }
 
-if (btnLoginGuest) {
-	btnLoginGuest.addEventListener('click', async () => {
-		try {
-			await signInAnonymously(auth);
-			btnLoginGuest.style.display = 'none';
-		} catch(e){ console.error('Anon login fallo', e); }
-	});
-}
 if (btnLoginMs) {
-	btnLoginMs.addEventListener('click', async () => {
+	btnLoginMs.addEventListener('click', async (ev) => {
 		try {
-			console.log('[auth] Click Microsoft -> preparando redirect');
 			didManualLogout = false;
-			await setPersistence(auth, browserLocalPersistence);
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
-			localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-			await signInWithRedirect(auth, provider);
-			console.log('[auth] signInWithRedirect (microsoft) lanzado');
+			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
+			const forcePopup = ev.altKey;
+			if (forcePopup) {
+				console.log('[auth] Forzando popup Microsoft (Alt+Click)');
+				await signInWithPopup(auth, provider);
+				return;
+			}
+			if (AUTH_MODE === 'popup') {
+				try {
+					await signInWithPopup(auth, provider);
+				} catch (e) {
+					const code = e && e.code ? String(e.code) : '';
+					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+						await signInWithRedirect(auth, provider);
+					} else {
+						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+						await signInWithRedirect(auth, provider);
+					}
+				}
+			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+				await signInWithRedirect(auth, provider);
+			}
 		} catch (e) {
-			console.error('Error al iniciar con Microsoft (redirect puro)', e?.code, e?.message);
+			console.error('Error al iniciar con Microsoft', e);
 		}
 	});
 }
