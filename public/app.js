@@ -71,6 +71,7 @@ let lastRedirectError = null;
 let lastRedirectResultChecked = false;
 let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
 let triedPopupFallback = false;
+const LS_REDIRECT_MARK = 'pendingRedirectProvider';
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -507,6 +508,7 @@ async function initializeAppClient() {
 		const redirectRes = await getRedirectResult(auth);
 		if (redirectRes) {
 			console.log('[auth] Resultado redirect:', redirectRes?.user?.uid, redirectRes?.providerId, redirectRes?.user?.email);
+			localStorage.removeItem(LS_REDIRECT_MARK);
 		} else {
 			console.log('[auth] No hay resultado de redirect pendiente');
 		}
@@ -532,6 +534,15 @@ async function initializeAppClient() {
 	}
 
 	onAuthStateChanged(auth, async (user) => {
+		// Si no hay usuario todavía y había un intento de redirect previo sin resultado, alerta diagnóstica
+		if (!user && lastRedirectResultChecked) {
+			const pending = localStorage.getItem(LS_REDIRECT_MARK);
+			if (pending) {
+				console.warn('[auth] Redirect marcado pero sin resultado. Posibles causas: dominios no autorizados, bloqueo cookies, política escolar.');
+				try { alert('No se completó el inicio de sesión con Google/Microsoft. Revisa: (1) dominios autorizados en Firebase Auth, (2) sin bloqueadores/cookies, (3) vuelve a intentarlo.'); } catch(_){}
+				localStorage.removeItem(LS_REDIRECT_MARK);
+			}
+		}
 		if (user) {
 			userId = user.uid;
 			try {
@@ -648,25 +659,33 @@ if (btnLogout) {
 }
 
 if (btnLoginGoogle) {
-	btnLoginGoogle.addEventListener('click', async () => {
+	btnLoginGoogle.addEventListener('click', async (ev) => {
 		try {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
+			const forcePopup = ev.altKey; // Alt+Click para forzar popup (debug)
+			if (forcePopup) {
+				console.log('[auth] Forzando popup (Alt+Click)');
+				await signInWithPopup(auth, provider);
+				return;
+			}
 			if (AUTH_MODE === 'popup') {
 				try {
 					await signInWithPopup(auth, provider);
 				} catch (e) {
 					const code = e && e.code ? String(e.code) : '';
 					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'google');
 						await signInWithRedirect(auth, provider);
 					} else {
-						// Para evitar warnings en popup, forzamos redirect igualmente
+						localStorage.setItem(LS_REDIRECT_MARK, 'google');
 						await signInWithRedirect(auth, provider);
 					}
 				}
 			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'google');
 				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
@@ -676,24 +695,33 @@ if (btnLoginGoogle) {
 }
 
 if (btnLoginMs) {
-	btnLoginMs.addEventListener('click', async () => {
+	btnLoginMs.addEventListener('click', async (ev) => {
 		try {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
+			const forcePopup = ev.altKey;
+			if (forcePopup) {
+				console.log('[auth] Forzando popup Microsoft (Alt+Click)');
+				await signInWithPopup(auth, provider);
+				return;
+			}
 			if (AUTH_MODE === 'popup') {
 				try {
 					await signInWithPopup(auth, provider);
 				} catch (e) {
 					const code = e && e.code ? String(e.code) : '';
 					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 						await signInWithRedirect(auth, provider);
 					} else {
+						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 						await signInWithRedirect(auth, provider);
 					}
 				}
 			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
