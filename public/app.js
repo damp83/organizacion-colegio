@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
 setLogLevel('debug');
@@ -67,6 +67,71 @@ let actividadesMapCache = new Map();
 const getPublicCollection = (collectionName) => {
 	return collection(db, `artifacts/${appId}/public/data/${collectionName}`);
 };
+
+// --- Seed de datos de ejemplo (opcional con ?seed=1) ---
+async function seedDemoDataIfRequested() {
+	try {
+		const params = new URLSearchParams(location.search);
+		if (!params.has('seed')) return;
+
+		// Solo sembrar si están vacías
+		const colNames = ['documentos', 'anuncios', 'actividades', 'agenda'];
+		const empties = [];
+		for (const name of colNames) {
+			const snap = await getDocs(getPublicCollection(name));
+			if (snap.empty) empties.push(name);
+		}
+
+		if (empties.length === 0) {
+			console.log('Seed: colecciones ya tienen datos, no se insertará.');
+			return;
+		}
+
+		const now = Date.now();
+		if (empties.includes('documentos')) {
+			await addDoc(getPublicCollection('documentos'), {
+				nombre: 'Proyecto Educativo de Centro',
+				archivo: 'pec.pdf',
+				fecha: new Date().toLocaleDateString('es-ES'),
+				timestamp: now
+			});
+		}
+		if (empties.includes('anuncios')) {
+			await addDoc(getPublicCollection('anuncios'), {
+				texto: 'Claustro general el próximo viernes a las 12:00.',
+				timestamp: now
+			});
+		}
+		if (empties.includes('actividades')) {
+			const today = new Date();
+			const y = today.getFullYear();
+			const m = String(today.getMonth() + 1).padStart(2, '0');
+			const d = String(Math.min(28, today.getDate())).padStart(2, '0');
+			await addDoc(getPublicCollection('actividades'), {
+				title: 'Reunión de ciclo',
+				date: `${y}-${m}-${d}`,
+				timestamp: now
+			});
+		}
+		if (empties.includes('agenda')) {
+			const today = new Date();
+			const y = today.getFullYear();
+			const m = String(today.getMonth() + 1).padStart(2, '0');
+			const d = String(Math.min(28, today.getDate())).padStart(2, '0');
+			await addDoc(getPublicCollection('agenda'), {
+				title: 'Seguimiento Programación Didáctica',
+				date: `${y}-${m}-${d}`,
+				status: 'Programada',
+				documento: '',
+				description: 'Revisión de objetivos y acuerdos del trimestre.',
+				timestamp: now
+			});
+		}
+		console.log('Seed: datos de ejemplo insertados.');
+	} catch (err) {
+		console.error('Seed: error insertando datos de ejemplo:', err);
+	}
+}
 
 // --- Funciones de UI/Renderizado ---
 function cambiarSeccion(targetId) {
@@ -320,6 +385,8 @@ async function initializeAppClient() {
 			userDisplay.textContent = `ID de Usuario: ${userId}`;
 			setupFirestoreListeners();
 			renderizarCalendario();
+			// Seed opcional si se pasó ?seed=1
+			seedDemoDataIfRequested();
 		} else {
 			userDisplay.textContent = "Usuario anónimo";
 			if (initialAuthToken) {
