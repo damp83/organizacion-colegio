@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
@@ -29,6 +29,8 @@ const navButtons = document.querySelectorAll('.nav-bar button');
 const sections = document.querySelectorAll('.seccion');
 const documentosGrid = document.querySelector('.documentos-grid');
 const userDisplay = document.querySelector('.user-info');
+const btnLogout = document.getElementById('btn-logout');
+const btnLogin = document.getElementById('btn-login');
 
 // Calendario
 const calendarGrid = document.getElementById('calendar-grid');
@@ -458,12 +460,16 @@ async function initializeAppClient() {
 				isAdmin = !!(res && res.claims && res.claims.admin);
 			} catch (_) { isAdmin = false; }
 			userDisplay.textContent = `ID de Usuario: ${userId}${isAdmin ? ' (admin)' : ''}`;
+			if (btnLogout) btnLogout.style.display = 'inline-block';
+			if (btnLogin) btnLogin.style.display = 'none';
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1
 			seedDemoDataIfRequested();
 		} else {
 			userDisplay.textContent = "Usuario anónimo";
+			if (btnLogout) btnLogout.style.display = 'none';
+			if (btnLogin) btnLogin.style.display = 'inline-block';
 			if (initialAuthToken) {
 				try {
 					await signInWithCustomToken(auth, initialAuthToken);
@@ -474,6 +480,31 @@ async function initializeAppClient() {
 			} else {
 				await signInAnonymously(auth);
 			}
+		}
+	});
+}
+
+// Logout handler
+if (btnLogout) {
+	btnLogout.addEventListener('click', async () => {
+		try {
+			await signOut(auth);
+		} catch (e) {
+			console.error('Error al cerrar sesión', e);
+		}
+	});
+}
+
+if (btnLogin) {
+	btnLogin.addEventListener('click', async () => {
+		try {
+			if (initialAuthToken) {
+				await signInWithCustomToken(auth, initialAuthToken);
+			} else {
+				await signInAnonymously(auth);
+			}
+		} catch (e) {
+			console.error('Error al iniciar sesión', e);
 		}
 	});
 }
