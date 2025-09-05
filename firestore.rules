@@ -14,7 +14,49 @@ service cloud.firestore {
     }
 
     function isAllowedUser() {
-      return isAuthenticated() && (request.auth.token.allowed == true || isAdmin());
+      return isAuthenticated() && (isAdmin() || request.auth.token.allowed == true || isAllowlistedEmail());
+    }
+
+    // Allowlist basada en emails exactos verificados
+    function isAllowlistedEmail() {
+      return request.auth.token.email_verified == true &&
+        request.auth.token.email in [
+          "alejandra.fernandez@murciaeduca.es",
+          "anaadela.cordoba@murciaeduca.es",
+          "anabelen.cano@murciaeduca.es",
+          "anama.villacieros@murciaeduca.es",
+          "andres.alcaraz@murciaeduca.es",
+          "begona.tornel@murciaeduca.es",
+          "belen.martinez2@murciaeduca.es",
+          "carmenmarta.perez@murciaeduca.es",
+          "catalina.alcazar@murciaeduca.es",
+          "catalina.mendez2@murciaeduca.es",
+          "celiam.requena@murciaeduca.es",
+          "cristina.martinez25@murciaeduca.es",
+          "cristina.vivo@murciaeduca.es",
+          "estela.garcia@murciaeduca.es",
+          "fulgencio.osete2@murciaeduca.es",
+          "josefa.soto@murciaeduca.es",
+          "josefrancisco.nicolas@murciaeduca.es",
+          "josejuan.martinez@murciaeduca.es",
+          "juanjose.almagro@murciaeduca.es",
+          "laura.garcia6@murciaeduca.es",
+          "luis.rodriguez5@murciaeduca.es",
+          "luisfelipe.murcia@murciaeduca.es",
+          "mariaangeles.noguera@murciaeduca.es",
+          "mariaaraceli.cases@murciaeduca.es",
+          "mariaester.carrillo@murciaeduca.es",
+          "mariafrancisc.franco@murciaeduca.es",
+          "mariajosefa.caballero@murciaeduca.es",
+          "mariateresa.martinez4@murciaeduca.es",
+          "marta.martinez3@murciaeduca.es",
+          "nuria.alvarez@murciaeduca.es",
+          "paloma.crespo@murciaeduca.es",
+          "pedro.martinez39@murciaeduca.es",
+          "rita.bohajar@murciaeduca.es",
+          "sonia.escamez@murciaeduca.es",
+          "teresa.fernandez2@murciaeduca.es"
+        ];
     }
 
     // Validadores comunes
