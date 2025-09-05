@@ -54,8 +54,17 @@ exports.seedPublicData = onRequest(async (req, res) => {
 		return;
 	}
 
-	const providedToken = req.get("x-seed-token") || req.query.token;
-	const configuredToken = process.env.SEED_TOKEN || process.env.seed_token;
+		const providedToken = req.get("x-seed-token") || req.query.token;
+		let configuredToken = process.env.SEED_TOKEN || process.env.seed_token;
+		// Fallback to functions config: firebase functions:config:set seed.token="<value>"
+		try {
+			if (!configuredToken) {
+				const cfg = require("firebase-functions").config();
+				configuredToken = (cfg && cfg.seed && cfg.seed.token) ? cfg.seed.token : configuredToken;
+			}
+		} catch (_) {
+			// ignore if config not available
+		}
 
 	if (!configuredToken) {
 		logger.error("SEED_TOKEN not configured in environment.");
