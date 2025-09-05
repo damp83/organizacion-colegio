@@ -109,7 +109,7 @@ function computeCanWrite(u, adminFlag) {
 	if (!u) return false;
 	if (adminFlag) return true;
 	const email = (u.email || '').toLowerCase();
-	return !!(u.emailVerified && ALLOWLIST_EMAILS.has(email));
+	return !!ALLOWLIST_EMAILS.has(email);
 }
 let didManualLogout = false;
 // Cache de actividades para mantenerlas al cambiar de mes

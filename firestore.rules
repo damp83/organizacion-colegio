@@ -17,10 +17,9 @@ service cloud.firestore {
       return isAuthenticated() && (isAdmin() || request.auth.token.allowed == true || isAllowlistedEmail());
     }
 
-    // Allowlist basada en emails exactos verificados
+    // Allowlist basada en emails exactos (ya que son cuentas del centro). No requerimos email_verified
     function isAllowlistedEmail() {
-      return request.auth.token.email_verified == true &&
-        request.auth.token.email in [
+      return request.auth.token.email in [
           "alejandra.fernandez@murciaeduca.es",
           "anaadela.cordoba@murciaeduca.es",
           "anabelen.cano@murciaeduca.es",
