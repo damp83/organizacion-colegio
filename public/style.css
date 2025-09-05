@@ -26,19 +26,18 @@ body {
 header {
 	background-color: #111827; /* gray-900 */
 	color: white;
-	padding: 30px;
-	text-align: center;
+	padding: 26px 24px;
 	border-bottom: 4px solid #1f2937; /* gray-800 */
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
+	gap: 8px;
 }
 
 header h1 {
 	margin: 0;
 	font-weight: 700;
-	font-size: 2.5rem;
+	font-size: 2rem;
 }
 
 .subtitle {
@@ -51,15 +50,20 @@ header h1 {
 .user-info {
 	position: absolute;
 	bottom: 10px;
-	left: 10px;
-	font-size: 0.8rem;
-	color: #9ca3af; /* gray-400 */
+	left: 12px;
+	font-size: 0.85rem;
+	color: #e5e7eb; /* gray-200 */
+	background: rgba(255,255,255,0.08);
+	border: 1px solid rgba(255,255,255,0.15);
+	padding: 6px 10px;
+	border-radius: 999px;
+	backdrop-filter: blur(2px);
 }
 
 .auth-actions {
 	position: absolute;
 	top: 10px;
-	right: 10px;
+	right: 12px;
 	display: flex;
 	gap: 8px;
 }
@@ -69,6 +73,22 @@ header h1 {
 	padding: 8px 12px;
 	font-size: 0.9rem;
 }
+
+/* Brand/Logo */
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	justify-content: center;
+}
+.brand .logo {
+	width: 56px;
+	height: 56px;
+	border-radius: 12px;
+	box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+	background: #0b1220;
+}
+.brand .brand-text { display: flex; flex-direction: column; align-items: center; }
 
 .nav-bar {
 	background-color: #1f2937; /* gray-800 */
@@ -183,41 +203,49 @@ h2 {
 }
 
 .btn-accion {
-	background-color: #2563eb; /* blue-600 */
+	background: linear-gradient(180deg, #2563eb, #1d4ed8);
 	color: white;
-	border: none;
-	padding: 14px 30px;
-	border-radius: 8px;
+	border: 1px solid rgba(37,99,235,0.4);
+	padding: 12px 22px;
+	border-radius: 12px;
 	cursor: pointer;
-	font-size: 1.1rem;
-	font-weight: 500;
-	margin-top: 30px;
-	transition: background-color 0.3s ease, transform 0.2s ease;
-}
-        
-.btn-accion.editar, .btn-accion.eliminar {
-	margin-top: 0;
-	font-size: 0.9rem;
-	padding: 8px 16px;
+	font-size: 1rem;
+	font-weight: 600;
+	margin-top: 22px;
+	transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+	box-shadow: 0 10px 20px rgba(37,99,235,0.25);
 }
 
 .btn-accion:hover {
-	background-color: #1d4ed8; /* blue-700 */
 	transform: translateY(-2px);
-}
-.btn-accion.eliminar {
-	background-color: #dc2626; /* red-600 */
-}
-.btn-accion.eliminar:hover {
-	background-color: #b91c1c; /* red-700 */
+	filter: brightness(1.02);
+	box-shadow: 0 12px 24px rgba(37,99,235,0.3);
 }
 
+.btn-accion:active { transform: translateY(0); filter: brightness(0.98); }
+
+.btn-accion.editar, .btn-accion.eliminar {
+	margin-top: 0;
+	font-size: 0.9rem;
+	padding: 8px 14px;
+	box-shadow: none;
+}
+
+.btn-accion.eliminar {
+	background: linear-gradient(180deg, #ef4444, #dc2626);
+	border-color: rgba(239,68,68,0.4);
+	color: #fff;
+}
+.btn-accion.eliminar:hover { filter: brightness(1.02); }
+
 .btn-accion.editar {
-	background-color: #d97706; /* amber-600 */
+	background: linear-gradient(180deg, #f59e0b, #d97706);
+	border-color: rgba(245,158,11,0.4);
 }
-.btn-accion.editar:hover {
-	background-color: #b45309; /* amber-700 */
-}
+.btn-accion.editar:hover { filter: brightness(1.02); }
+
+/* Focus ring for all buttons */
+.btn-accion:focus-visible { outline: 2px solid rgba(37,99,235,0.5); outline-offset: 2px; }
 
 /* Estilos del nuevo calendario de cuadrícula */
 .calendar-nav {
