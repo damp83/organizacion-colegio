@@ -24,7 +24,8 @@ try {
 }
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 // Modo de autenticación preferido: 'redirect' elimina los warnings de popups
-const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'redirect';
+// Cambiamos a 'popup' por defecto porque el redirect no devuelve resultado en tu entorno
+const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'popup';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -659,34 +660,22 @@ if (btnLogout) {
 }
 
 if (btnLoginGoogle) {
-	btnLoginGoogle.addEventListener('click', async (ev) => {
+	btnLoginGoogle.addEventListener('click', async () => {
 		try {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
-			const forcePopup = ev.altKey; // Alt+Click para forzar popup (debug)
-			if (forcePopup) {
-				console.log('[auth] Forzando popup (Alt+Click)');
+			try {
 				await signInWithPopup(auth, provider);
-				return;
-			}
-			if (AUTH_MODE === 'popup') {
-				try {
-					await signInWithPopup(auth, provider);
-				} catch (e) {
-					const code = e && e.code ? String(e.code) : '';
-					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'google');
-						await signInWithRedirect(auth, provider);
-					} else {
-						localStorage.setItem(LS_REDIRECT_MARK, 'google');
-						await signInWithRedirect(auth, provider);
-					}
+			} catch (e) {
+				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					localStorage.setItem(LS_REDIRECT_MARK, 'google');
+					await signInWithRedirect(auth, provider);
+				} else {
+					throw e;
 				}
-			} else {
-				localStorage.setItem(LS_REDIRECT_MARK, 'google');
-				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Google', e);
@@ -695,34 +684,22 @@ if (btnLoginGoogle) {
 }
 
 if (btnLoginMs) {
-	btnLoginMs.addEventListener('click', async (ev) => {
+	btnLoginMs.addEventListener('click', async () => {
 		try {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
-			const forcePopup = ev.altKey;
-			if (forcePopup) {
-				console.log('[auth] Forzando popup Microsoft (Alt+Click)');
+			try {
 				await signInWithPopup(auth, provider);
-				return;
-			}
-			if (AUTH_MODE === 'popup') {
-				try {
-					await signInWithPopup(auth, provider);
-				} catch (e) {
-					const code = e && e.code ? String(e.code) : '';
-					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-						await signInWithRedirect(auth, provider);
-					} else {
-						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-						await signInWithRedirect(auth, provider);
-					}
+			} catch (e) {
+				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+					await signInWithRedirect(auth, provider);
+				} else {
+					throw e;
 				}
-			} else {
-				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Microsoft', e);
