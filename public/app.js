@@ -67,6 +67,7 @@ let currentDate = new Date();
 let auth, db, userId, isAdmin = false;
 // Permisos de escritura calculados en cliente (coincidir con reglas): admin o email verificado en allowlist
 let canWrite = false;
+let lastRedirectError = null;
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -502,7 +503,10 @@ async function initializeAppClient() {
 	try {
 		await getRedirectResult(auth);
 	} catch (e) {
-		console.warn('Redirect login no completado:', e?.message || e);
+		lastRedirectError = e;
+		const code = (e && e.code) ? String(e.code) : '';
+		const msg = (e && e.message) ? String(e.message) : '';
+		console.warn('Redirect login error:', code, msg);
 	}
 
 	// Conectar a emuladores si está activado o si estamos en localhost por defecto
@@ -566,6 +570,18 @@ async function initializeAppClient() {
 			if (btnLogout) btnLogout.style.display = 'none';
 			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
 			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+			// Si hubo error al redirigir en login, no fuerces anónimo y muestra un aviso
+			if (lastRedirectError) {
+				const code = (lastRedirectError.code || '').toString();
+				if (code.includes('operation-not-allowed')) {
+					try { alert('El proveedor no está habilitado en Firebase Auth. Habilítalo en la consola.'); } catch(_){}
+				} else if (code.includes('unauthorized-domain')) {
+					try { alert('Dominio no autorizado en Firebase Auth. Añade tu dominio en Authentication > Settings > Authorized domains.'); } catch(_){}
+				} else {
+					try { alert('No se pudo completar el inicio de sesión. Vuelve a intentarlo o usa otro proveedor.'); } catch(_){}
+				}
+				return;
+			}
 			if (initialAuthToken) {
 				try {
 					await signInWithCustomToken(auth, initialAuthToken);
@@ -597,7 +613,7 @@ if (btnLoginGoogle) {
 		try {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
-			provider.setCustomParameters({ prompt: 'select_account' });
+			provider.setCustomParameters({ prompt: 'select_account', hd: 'murciaeduca.es' });
 			if (AUTH_MODE === 'popup') {
 				try {
 					await signInWithPopup(auth, provider);
