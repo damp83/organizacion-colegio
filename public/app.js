@@ -73,6 +73,13 @@ async function seedDemoDataIfRequested() {
 	try {
 		const params = new URLSearchParams(location.search);
 		if (!params.has('seed')) return;
+		// Solo permitir seed desde localhost salvo que se fuerce con __allow_seed (bandera temporal)
+		const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+		const allowSeed = typeof window !== 'undefined' && window.__allow_seed === true;
+		if (!isLocal && !allowSeed) {
+			console.warn('Seed bloqueado fuera de entorno local.');
+			return;
+		}
 
 		// Solo sembrar si están vacías
 		const colNames = ['documentos', 'anuncios', 'actividades', 'agenda'];
@@ -146,18 +153,32 @@ function cambiarSeccion(targetId) {
 function renderizarDocumentos(documentos) {
 	documentosGrid.innerHTML = '';
 	if (documentos.length === 0) {
-		documentosGrid.innerHTML = '<p class="loading-message">No hay documentos para mostrar.</p>';
+		const p = document.createElement('p');
+		p.className = 'loading-message';
+		p.textContent = 'No hay documentos para mostrar.';
+		documentosGrid.appendChild(p);
 		return;
 	}
-	documentos.forEach(doc => {
+	documentos.forEach(d => {
 		const card = document.createElement('div');
 		card.className = 'documento-card';
-		card.innerHTML = `
-			<h3>${doc.nombre}</h3>
-			<p><strong>Archivo:</strong> ${doc.archivo}</p>
-			<p><strong>Fecha de subida:</strong> ${doc.fecha}</p>
-			<button class="btn-accion eliminar" data-id="${doc.id}">Eliminar</button>
-		`;
+		const h3 = document.createElement('h3');
+		h3.textContent = d.nombre || '';
+		const p1 = document.createElement('p');
+		const strong1 = document.createElement('strong');
+		strong1.textContent = 'Archivo:';
+		p1.appendChild(strong1);
+		p1.append(' ' + (d.archivo || ''));
+		const p2 = document.createElement('p');
+		const strong2 = document.createElement('strong');
+		strong2.textContent = 'Fecha de subida:';
+		p2.appendChild(strong2);
+		p2.append(' ' + (d.fecha || ''));
+		const btn = document.createElement('button');
+		btn.className = 'btn-accion eliminar';
+		btn.dataset.id = d.id;
+		btn.textContent = 'Eliminar';
+		card.append(h3, p1, p2, btn);
 		documentosGrid.appendChild(card);
 	});
 }
@@ -165,21 +186,23 @@ function renderizarDocumentos(documentos) {
 function renderizarAnuncios(anuncios) {
 	listaAnuncios.innerHTML = '';
 	if (anuncios.length === 0) {
-		listaAnuncios.innerHTML = '<p class="loading-message">No hay anuncios para mostrar.</p>';
+		const p = document.createElement('p');
+		p.className = 'loading-message';
+		p.textContent = 'No hay anuncios para mostrar.';
+		listaAnuncios.appendChild(p);
 		return;
 	}
 	anuncios.forEach(anuncio => {
 		const item = document.createElement('div');
 		item.className = 'anuncio-item';
 		const text = document.createElement('span');
-		text.textContent = anuncio.texto;
+		text.textContent = anuncio.texto || '';
 		const btn = document.createElement('button');
 		btn.className = 'btn-accion eliminar';
 		btn.style.marginLeft = 'auto';
 		btn.dataset.id = anuncio.id;
 		btn.textContent = 'Eliminar';
-		item.appendChild(text);
-		item.appendChild(btn);
+		item.append(text, btn);
 		listaAnuncios.appendChild(item);
 	});
 }
@@ -251,23 +274,49 @@ function renderizarAgenda(agenda) {
 		return;
 	}
 	agenda.forEach(item => {
-		const statusClass = `status-${item.status.toLowerCase().replace(/\s+/g, '-')}`;
-		const div = document.createElement('div');
-		div.className = 'agenda-item';
-		div.innerHTML = `
-			<div class="item-header">
-				<h4>${item.title}</h4>
-				<div class="actions">
-					<span class="status-badge ${statusClass}">${item.status}</span>
-					<button class="btn-accion editar" data-id="${item.id}">Editar</button>
-					<button class="btn-accion eliminar" data-id="${item.id}">Eliminar</button>
-				</div>
-			</div>
-			<p><strong>Fecha:</strong> ${item.date}</p>
-			<p><strong>Descripción:</strong> ${item.description}</p>
-			${item.documento ? `<p><strong>Documento:</strong> <a href="${item.documento}" target="_blank">Ver documento</a></p>` : ''}
-		`;
-		listaAgenda.appendChild(div);
+		const statusClass = `status-${(item.status || '').toLowerCase().replace(/\s+/g, '-')}`;
+		const container = document.createElement('div');
+		container.className = 'agenda-item';
+		const header = document.createElement('div');
+		header.className = 'item-header';
+		const h4 = document.createElement('h4');
+		h4.textContent = item.title || '';
+		const actions = document.createElement('div');
+		actions.className = 'actions';
+		const badge = document.createElement('span');
+		badge.className = `status-badge ${statusClass}`;
+		badge.textContent = item.status || '';
+		const editBtn = document.createElement('button');
+		editBtn.className = 'btn-accion editar';
+		editBtn.dataset.id = item.id;
+		editBtn.textContent = 'Editar';
+		const delBtn = document.createElement('button');
+		delBtn.className = 'btn-accion eliminar';
+		delBtn.dataset.id = item.id;
+		delBtn.textContent = 'Eliminar';
+		actions.append(badge, editBtn, delBtn);
+		header.append(h4, actions);
+		const pFecha = document.createElement('p');
+		const s1 = document.createElement('strong'); s1.textContent = 'Fecha:';
+		pFecha.append(s1, ' ', item.date || '');
+		const pDesc = document.createElement('p');
+		const s2 = document.createElement('strong'); s2.textContent = 'Descripción:';
+		pDesc.append(s2, ' ', item.description || '');
+		container.append(header, pFecha, pDesc);
+		if (item.documento) {
+			const pDoc = document.createElement('p');
+			const s3 = document.createElement('strong'); s3.textContent = 'Documento:';
+			const a = document.createElement('a');
+			a.target = '_blank';
+			try {
+				const url = new URL(item.documento);
+				a.href = url.href;
+				a.textContent = 'Ver documento';
+				pDoc.append(s3, ' ', a);
+				container.appendChild(pDoc);
+			} catch (_) { /* ignore invalid URL */ }
+		}
+		listaAgenda.appendChild(container);
 	});
 }
 
@@ -341,7 +390,8 @@ function agregarFormularioActividad(cell) {
 		await addDoc(getPublicCollection('actividades'), {
 			title: titulo,
 			date: date,
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			createdBy: userId || null
 		});
 		form.remove();
 	});
@@ -469,7 +519,8 @@ formDocumento.addEventListener('submit', async (e) => {
 			nombre: titulo,
 			archivo: archivo.name,
 			fecha: new Date().toLocaleDateString('es-ES'),
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			createdBy: userId || null
 		};
         
 		await addDoc(getPublicCollection('documentos'), newDocument);
@@ -494,7 +545,8 @@ formAnuncio.addEventListener('submit', async (e) => {
 	const textoAnuncio = document.getElementById('anuncio-texto').value;
 	await addDoc(getPublicCollection('anuncios'), {
 		texto: textoAnuncio,
-		timestamp: Date.now()
+		timestamp: Date.now(),
+		createdBy: userId || null
 	});
 	formAnuncio.reset();
 });
@@ -521,7 +573,7 @@ formAgenda.addEventListener('submit', async (e) => {
 	if (id) {
 		// Modo edición
 		const docRef = doc(getPublicCollection('agenda'), id);
-		await updateDoc(docRef, {
+	await updateDoc(docRef, {
 			title: titulo,
 			date: fecha,
 			status: estado,
@@ -536,7 +588,8 @@ formAgenda.addEventListener('submit', async (e) => {
 			status: estado,
 			documento: documento,
 			description: descripcion,
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			createdBy: userId || null
 		};
 		await addDoc(getPublicCollection('agenda'), newMeeting);
 	}

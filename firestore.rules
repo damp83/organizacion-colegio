@@ -1,9 +1,80 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite leer y escribir solo si el usuario ha iniciado sesión.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.admin == true);
+    }
+
+    function isOwner(resourceData) {
+      return isAuthenticated() && resourceData.createdBy == request.auth.uid;
+    }
+
+    // Validadores comunes
+    function isIsoDate(s) {
+      // YYYY-MM-DD simple check
+      return s is string && s.size() == 10 && s.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isShortString(s, max) {
+      return s is string && s.size() <= max;
+    }
+
+    // Rutas públicas de la app
+    match /artifacts/{appId}/public/data/{collection}/{docId} {
+      allow read: if true; // público de solo lectura
+
+      // Escrituras: solo admin o creador (para updates/deletes), con validación por colección
+      allow create: if isAuthenticated() && isValidCreate(collection, request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data);
+      allow delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data));
+
+      function hasValidBaseFields(newData) {
+        return newData.timestamp is int && newData.createdBy == request.auth.uid;
+      }
+
+      function isValidCreate(col, newData) {
+        return hasValidBaseFields(newData) &&
+          ((col == 'documentos' && validDocumentos(newData)) ||
+           (col == 'anuncios' && validAnuncios(newData)) ||
+           (col == 'actividades' && validActividades(newData)) ||
+           (col == 'agenda' && validAgenda(newData)));
+      }
+
+      function isValidUpdate(col, oldData, newData) {
+        // No permitir cambiar createdBy
+        return newData.createdBy == oldData.createdBy &&
+          newData.timestamp is int &&
+          ((col == 'documentos' && validDocumentos(newData)) ||
+           (col == 'anuncios' && validAnuncios(newData)) ||
+           (col == 'actividades' && validActividades(newData)) ||
+           (col == 'agenda' && validAgenda(newData)));
+      }
+
+      function validDocumentos(d) {
+        return isShortString(d.nombre, 200) &&
+               isShortString(d.archivo, 400) &&
+               isShortString(d.fecha, 20);
+      }
+
+      function validAnuncios(d) {
+        return isShortString(d.texto, 1000);
+      }
+
+      function validActividades(d) {
+        return isShortString(d.title, 200) && isIsoDate(d.date);
+      }
+
+      function validAgenda(d) {
+        return isShortString(d.title, 200) &&
+               isIsoDate(d.date) &&
+               (d.status in ['Programada','En curso','Finalizada','Cancelada']) &&
+               (d.documento == null || isShortString(d.documento, 1000)) &&
+               isShortString(d.description, 2000);
+      }
     }
   }
 }
