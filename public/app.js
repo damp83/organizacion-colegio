@@ -552,7 +552,7 @@ async function initializeAppClient() {
 			} catch (_) { isAdmin = false; }
 			canWrite = computeCanWrite(user, isAdmin);
 			const emailShown = (user.email || '').toLowerCase() || '(sin email: entra con Google/Microsoft)';
-			userDisplay.textContent = `${emailShown} – ID: ${userId}${isAdmin ? ' (admin)' : (!canWrite ? ' (solo lectura)' : '')}`;
+			userDisplay.textContent = `${emailShown}${isAdmin ? ' (admin)' : (!canWrite ? ' (solo lectura)' : '')}`;
 			// Alternar UI de escritura
 			try {
 				btnSubirDocumento.style.display = canWrite ? 'inline-flex' : 'none';
