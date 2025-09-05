@@ -102,7 +102,8 @@ const ALLOWLIST_EMAILS = new Set([
 	"pedro.martinez39@murciaeduca.es",
 	"rita.bohajar@murciaeduca.es",
 	"sonia.escamez@murciaeduca.es",
-	"teresa.fernandez2@murciaeduca.es"
+	"teresa.fernandez2@murciaeduca.es",
+	"diegoalberto.moya@murciaeduca.es"
 ]);
 function computeCanWrite(u, adminFlag) {
 	if (!u) return false;

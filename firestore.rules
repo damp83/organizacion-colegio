@@ -55,7 +55,8 @@ service cloud.firestore {
           "pedro.martinez39@murciaeduca.es",
           "rita.bohajar@murciaeduca.es",
           "sonia.escamez@murciaeduca.es",
-          "teresa.fernandez2@murciaeduca.es"
+          "teresa.fernandez2@murciaeduca.es",
+          "diegoalberto.moya@murciaeduca.es"
         ];
     }
 
