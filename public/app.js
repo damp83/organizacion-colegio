@@ -104,13 +104,15 @@ async function seedDemoDataIfRequested() {
 				nombre: 'Proyecto Educativo de Centro',
 				archivo: 'pec.pdf',
 				fecha: new Date().toLocaleDateString('es-ES'),
-				timestamp: now
+				timestamp: now,
+				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
 			});
 		}
 		if (empties.includes('anuncios')) {
 			await addDoc(getPublicCollection('anuncios'), {
 				texto: 'Claustro general el próximo viernes a las 12:00.',
-				timestamp: now
+				timestamp: now,
+				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
 			});
 		}
 		if (empties.includes('actividades')) {
@@ -121,7 +123,8 @@ async function seedDemoDataIfRequested() {
 			await addDoc(getPublicCollection('actividades'), {
 				title: 'Reunión de ciclo',
 				date: `${y}-${m}-${d}`,
-				timestamp: now
+				timestamp: now,
+				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
 			});
 		}
 		if (empties.includes('agenda')) {
@@ -135,7 +138,8 @@ async function seedDemoDataIfRequested() {
 				status: 'Programada',
 				documento: '',
 				description: 'Revisión de objetivos y acuerdos del trimestre.',
-				timestamp: now
+				timestamp: now,
+				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
 			});
 		}
 		console.log('Seed: datos de ejemplo insertados.');
@@ -410,6 +414,7 @@ function agregarFormularioActividad(cell) {
 
 	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		if (!requireAuthForWrites()) return;
 		const titulo = input.value;
 		const date = cell.dataset.date;
 		await addDoc(getPublicCollection('actividades'), {
@@ -492,7 +497,8 @@ async function initializeAppClient() {
 
 			userDisplay.textContent = "Usuario anónimo";
 			if (btnLogout) btnLogout.style.display = 'none';
-			if (btnLogin) btnLogin.style.display = 'inline-block';
+			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
 			if (initialAuthToken) {
 				try {
 					await signInWithCustomToken(auth, initialAuthToken);
@@ -621,6 +627,7 @@ window.addEventListener('click', (event) => {
 
 formDocumento.addEventListener('submit', async (e) => {
 	e.preventDefault();
+	if (!requireAuthForWrites()) return;
 	const titulo = document.getElementById('documento-titulo').value;
 	const archivo = document.getElementById('documento-archivo').files[0];
     
@@ -642,6 +649,7 @@ formDocumento.addEventListener('submit', async (e) => {
 
 documentosGrid.addEventListener('click', (e) => {
 	if (e.target.classList.contains('eliminar')) {
+		if (!requireAuthForWrites()) return;
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar este documento?', async () => {
 			await deleteDoc(doc(getPublicCollection('documentos'), id));
@@ -652,6 +660,7 @@ documentosGrid.addEventListener('click', (e) => {
 // Evento del formulario de anuncios
 formAnuncio.addEventListener('submit', async (e) => {
 	e.preventDefault();
+	if (!requireAuthForWrites()) return;
 	const textoAnuncio = document.getElementById('anuncio-texto').value;
 	await addDoc(getPublicCollection('anuncios'), {
 		texto: textoAnuncio,
@@ -663,6 +672,7 @@ formAnuncio.addEventListener('submit', async (e) => {
 
 listaAnuncios.addEventListener('click', (e) => {
 	if (e.target.classList.contains('eliminar')) {
+		if (!requireAuthForWrites()) return;
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar este anuncio?', async () => {
 			await deleteDoc(doc(getPublicCollection('anuncios'), id));
@@ -673,6 +683,7 @@ listaAnuncios.addEventListener('click', (e) => {
 // Evento del formulario de agenda
 formAgenda.addEventListener('submit', async (e) => {
 	e.preventDefault();
+	if (!requireAuthForWrites()) return;
 	const id = document.getElementById('agenda-id').value;
 	const titulo = document.getElementById('agenda-titulo').value;
 	const fecha = document.getElementById('agenda-fecha').value;
@@ -710,6 +721,7 @@ formAgenda.addEventListener('submit', async (e) => {
 // Eventos de la lista de agenda (delegación de eventos)
 listaAgenda.addEventListener('click', async (e) => {
 	if (e.target.classList.contains('eliminar')) {
+		if (!requireAuthForWrites()) return;
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar esta reunión?', async () => {
 			await deleteDoc(doc(getPublicCollection('agenda'), id));
@@ -783,3 +795,12 @@ document.addEventListener('keydown', (e) => {
 
 // Inicializar
 initializeAppClient();
+
+// Requiere sesión para acciones de escritura
+function requireAuthForWrites() {
+	if (!auth || !auth.currentUser) {
+		try { alert('Inicia sesión para realizar esta acción.'); } catch (_) {}
+		return false;
+	}
+	return true;
+}
