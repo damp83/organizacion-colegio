@@ -8,6 +8,7 @@
  */
 
 const {setGlobalOptions} = require("firebase-functions");
+const {beforeUserSignedIn} = require("firebase-functions/v2/identity");
 const {onRequest} = require("firebase-functions/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -38,6 +39,47 @@ try {
 } catch (e) {
 	// No-op if already initialized
 }
+
+// --- Auth blocking: permitir solo emails en allowlist y marcar sesión como allowed ---
+function getAllowList() {
+	let list = [];
+	if (process.env.ALLOWLIST) {
+		list = list.concat(String(process.env.ALLOWLIST).split(","));
+	}
+	try {
+		const cfg = require("firebase-functions").config();
+		const v = cfg && cfg.auth && cfg.auth.allowlist;
+		if (Array.isArray(v)) list = list.concat(v);
+		else if (typeof v === "string") list = list.concat(v.split(","));
+	} catch (_) { /* ignore */ }
+	const cleaned = list.map((s) => String(s || "").trim().toLowerCase()).filter(Boolean);
+	return new Set(cleaned);
+}
+
+function isAllowedEmail(email, allowSet) {
+	const e = String(email || "").toLowerCase();
+	if (!e) return false;
+	if (allowSet.has(e)) return true;
+	// Soportar reglas de dominio con prefijo '@dominio.tld'
+	for (const item of allowSet) {
+		if (item.startsWith("@") && e.endsWith(item)) return true;
+	}
+	return false;
+}
+
+exports.allowlistedSignIn = beforeUserSignedIn(async (event) => {
+	const allowSet = getAllowList();
+	// Si no hay allowlist configurada, no bloquear (modo abierto)
+	if (!allowSet || allowSet.size === 0) {
+		return {sessionClaims: {allowed: true}};
+	}
+	const email = event?.data?.email || "";
+	if (!isAllowedEmail(email, allowSet)) {
+		throw new Error("Email no autorizado para iniciar sesión");
+	}
+	// Marca de sesión para reglas de Firestore
+	return {sessionClaims: {allowed: true}};
+});
 
 /**
  * Seed protected endpoint

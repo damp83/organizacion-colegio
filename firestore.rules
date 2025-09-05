@@ -13,6 +13,10 @@ service cloud.firestore {
       return isAuthenticated() && resourceData.createdBy == request.auth.uid;
     }
 
+    function isAllowedUser() {
+      return isAuthenticated() && (request.auth.token.allowed == true || isAdmin());
+    }
+
     // Validadores comunes
     function isIsoDate(s) {
       // YYYY-MM-DD simple check
@@ -27,10 +31,10 @@ service cloud.firestore {
     match /artifacts/{appId}/public/data/{collection}/{docId} {
       allow read: if true; // público de solo lectura
 
-      // Escrituras: solo admin o creador (para updates/deletes), con validación por colección
-      allow create: if isAuthenticated() && isValidCreate(collection, request.resource.data);
-      allow update: if isAuthenticated() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data);
-      allow delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data));
+  // Escrituras: solo usuarios permitidos (allowed) o admin; updates/deletes además exigen propiedad o admin
+  allow create: if isAllowedUser() && isValidCreate(collection, request.resource.data);
+  allow update: if isAllowedUser() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data);
+  allow delete: if isAllowedUser() && (isAdmin() || isOwner(resource.data));
 
       function hasValidBaseFields(newData) {
         return newData.timestamp is int && newData.createdBy == request.auth.uid;
