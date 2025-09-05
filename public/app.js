@@ -24,7 +24,8 @@ try {
 }
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 // Modo de autenticación preferido: 'redirect' elimina los warnings de popups
-const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'redirect';
+// Forzar redirect para minimizar problemas popup; se puede cambiar a 'popup' manualmente
+const AUTH_MODE = 'redirect';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -32,6 +33,7 @@ const sections = document.querySelectorAll('.seccion');
 const documentosGrid = document.querySelector('.documentos-grid');
 const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
+const btnLoginGuest = document.getElementById('btn-login-guest');
 const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
 
@@ -534,6 +536,7 @@ async function initializeAppClient() {
 	}
 
 	onAuthStateChanged(auth, async (user) => {
+		console.log('[auth] state changed ->', user ? (user.isAnonymous ? 'anon' : (user.email || 'no-email')) : 'null');
 		// Si no hay usuario todavía y había un intento de redirect previo sin resultado, alerta diagnóstica
 		if (!user && lastRedirectResultChecked) {
 			const pending = localStorage.getItem(LS_REDIRECT_MARK);
@@ -632,16 +635,8 @@ async function initializeAppClient() {
 				}
 				return;
 			}
-			if (initialAuthToken) {
-				try {
-					await signInWithCustomToken(auth, initialAuthToken);
-				} catch (error) {
-					console.error("Error al iniciar sesión con token personalizado:", error);
-					await signInAnonymously(auth);
-				}
-			} else {
-				await signInAnonymously(auth);
-			}
+			// No iniciar anónimo inmediatamente; mostrar opción invitado para depurar login federado
+			if (btnLoginGuest) btnLoginGuest.style.display = 'inline-block';
 		}
 	});
 }
@@ -695,6 +690,14 @@ if (btnLoginGoogle) {
 }
 
 if (btnLoginMs) {
+if (btnLoginGuest) {
+	btnLoginGuest.addEventListener('click', async () => {
+		try {
+			await signInAnonymously(auth);
+			btnLoginGuest.style.display = 'none';
+		} catch(e){ console.error('Anon login fallo', e); }
+	});
+}
 	btnLoginMs.addEventListener('click', async (ev) => {
 		try {
 			didManualLogout = false;
