@@ -526,7 +526,7 @@ async function initializeAppClient() {
 				isAdmin = !!(res && res.claims && res.claims.admin);
 			} catch (_) { isAdmin = false; }
 			canWrite = computeCanWrite(user, isAdmin);
-			const emailShown = (user.email || '').toLowerCase() || '(sin email)';
+			const emailShown = (user.email || '').toLowerCase() || '(sin email: entra con Google/Microsoft)';
 			userDisplay.textContent = `${emailShown} – ID: ${userId}${isAdmin ? ' (admin)' : (!canWrite ? ' (solo lectura)' : '')}`;
 			// Alternar UI de escritura
 			try {
@@ -535,8 +535,9 @@ async function initializeAppClient() {
 				formAgenda.querySelector('button[type="submit"]').disabled = !canWrite;
 			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'inline-block';
-			if (btnLoginGoogle) btnLoginGoogle.style.display = 'none';
-			if (btnLoginMs) btnLoginMs.style.display = 'none';
+			// Si es anónimo, mantener visibles los botones de login para poder "actualizar" la sesión
+			if (btnLoginGoogle) btnLoginGoogle.style.display = (user.isAnonymous ? 'inline-block' : 'none');
+			if (btnLoginMs) btnLoginMs.style.display = (user.isAnonymous ? 'inline-block' : 'none');
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1
