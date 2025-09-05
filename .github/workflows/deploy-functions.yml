@@ -41,5 +41,5 @@ jobs:
         working-directory: functions
         run: npm run -s lint
 
-      - name: Deploy Functions
-        run: firebase deploy --only functions --project organizacioncentro-d3cd7 --non-interactive
+      - name: Deploy Functions and Firestore Rules
+        run: firebase deploy --only functions,firestore:rules --project organizacioncentro-d3cd7 --non-interactive
