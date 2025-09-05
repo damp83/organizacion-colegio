@@ -65,6 +65,51 @@ let confirmationCallback = null;
 // Variables de estado
 let currentDate = new Date();
 let auth, db, userId, isAdmin = false;
+// Permisos de escritura calculados en cliente (coincidir con reglas): admin o email verificado en allowlist
+let canWrite = false;
+const ALLOWLIST_EMAILS = new Set([
+	"alejandra.fernandez@murciaeduca.es",
+	"anaadela.cordoba@murciaeduca.es",
+	"anabelen.cano@murciaeduca.es",
+	"anama.villacieros@murciaeduca.es",
+	"andres.alcaraz@murciaeduca.es",
+	"begona.tornel@murciaeduca.es",
+	"belen.martinez2@murciaeduca.es",
+	"carmenmarta.perez@murciaeduca.es",
+	"catalina.alcazar@murciaeduca.es",
+	"catalina.mendez2@murciaeduca.es",
+	"celiam.requena@murciaeduca.es",
+	"cristina.martinez25@murciaeduca.es",
+	"cristina.vivo@murciaeduca.es",
+	"estela.garcia@murciaeduca.es",
+	"fulgencio.osete2@murciaeduca.es",
+	"josefa.soto@murciaeduca.es",
+	"josefrancisco.nicolas@murciaeduca.es",
+	"josejuan.martinez@murciaeduca.es",
+	"juanjose.almagro@murciaeduca.es",
+	"laura.garcia6@murciaeduca.es",
+	"luis.rodriguez5@murciaeduca.es",
+	"luisfelipe.murcia@murciaeduca.es",
+	"mariaangeles.noguera@murciaeduca.es",
+	"mariaaraceli.cases@murciaeduca.es",
+	"mariaester.carrillo@murciaeduca.es",
+	"mariafrancisc.franco@murciaeduca.es",
+	"mariajosefa.caballero@murciaeduca.es",
+	"mariateresa.martinez4@murciaeduca.es",
+	"marta.martinez3@murciaeduca.es",
+	"nuria.alvarez@murciaeduca.es",
+	"paloma.crespo@murciaeduca.es",
+	"pedro.martinez39@murciaeduca.es",
+	"rita.bohajar@murciaeduca.es",
+	"sonia.escamez@murciaeduca.es",
+	"teresa.fernandez2@murciaeduca.es"
+]);
+function computeCanWrite(u, adminFlag) {
+	if (!u) return false;
+	if (adminFlag) return true;
+	const email = (u.email || '').toLowerCase();
+	return !!(u.emailVerified && ALLOWLIST_EMAILS.has(email));
+}
 let didManualLogout = false;
 // Cache de actividades para mantenerlas al cambiar de mes
 let actividadesMapCache = new Map();
@@ -185,7 +230,7 @@ function renderizarDocumentos(documentos) {
 		p2.appendChild(strong2);
 		p2.append(' ' + (d.fecha || ''));
 		const elements = [h3, p1, p2];
-		const canManage = isAdmin || (d && d.createdBy && d.createdBy === userId);
+		const canManage = canWrite && (isAdmin || (d && d.createdBy && d.createdBy === userId));
 		if (canManage) {
 			const btn = document.createElement('button');
 			btn.className = 'btn-accion eliminar';
@@ -213,7 +258,7 @@ function renderizarAnuncios(anuncios) {
 		const text = document.createElement('span');
 		text.textContent = anuncio.texto || '';
 		const elements = [text];
-		const canManage = isAdmin || (anuncio && anuncio.createdBy && anuncio.createdBy === userId);
+		const canManage = canWrite && (isAdmin || (anuncio && anuncio.createdBy && anuncio.createdBy === userId));
 		if (canManage) {
 			const btn = document.createElement('button');
 			btn.className = 'btn-accion eliminar';
@@ -280,7 +325,7 @@ function renderizarActividades() {
 			const titleSpan = document.createElement('span');
 			titleSpan.textContent = act.title || '';
 			activityItem.appendChild(titleSpan);
-			const canManage = isAdmin || (act && act.createdBy && act.createdBy === userId);
+			const canManage = canWrite && (isAdmin || (act && act.createdBy && act.createdBy === userId));
 			if (canManage) {
 				const del = document.createElement('button');
 				del.className = 'delete-btn';
@@ -314,7 +359,7 @@ function renderizarAgenda(agenda) {
 		badge.className = `status-badge ${statusClass}`;
 		badge.textContent = item.status || '';
 		actions.append(badge);
-		const canManage = isAdmin || (item && item.createdBy && item.createdBy === userId);
+	const canManage = canWrite && (isAdmin || (item && item.createdBy && item.createdBy === userId));
 		if (canManage) {
 			const editBtn = document.createElement('button');
 			editBtn.className = 'btn-accion editar';
@@ -405,6 +450,10 @@ function setupFirestoreListeners() {
 // --- Lógica del Calendario ---
 function agregarFormularioActividad(cell) {
 	document.querySelectorAll('.actividad-form').forEach(form => form.remove());
+	if (!canWrite) {
+		try { alert('No tienes permisos para crear actividades. Pide acceso al centro.'); } catch (_) {}
+		return;
+	}
 	const form = document.createElement('form');
 	form.className = 'actividad-form';
 	form.innerHTML = `
@@ -475,7 +524,14 @@ async function initializeAppClient() {
 				const res = await getIdTokenResult(user, true);
 				isAdmin = !!(res && res.claims && res.claims.admin);
 			} catch (_) { isAdmin = false; }
-			userDisplay.textContent = `ID de Usuario: ${userId}${isAdmin ? ' (admin)' : ''}`;
+			canWrite = computeCanWrite(user, isAdmin);
+			userDisplay.textContent = `ID de Usuario: ${userId}${isAdmin ? ' (admin)' : (!canWrite ? ' (solo lectura)' : '')}`;
+			// Alternar UI de escritura
+			try {
+				btnSubirDocumento.style.display = canWrite ? 'inline-flex' : 'none';
+				formAnuncio.querySelector('button[type="submit"]').disabled = !canWrite;
+				formAgenda.querySelector('button[type="submit"]').disabled = !canWrite;
+			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'inline-block';
 			if (btnLoginGoogle) btnLoginGoogle.style.display = 'none';
 			if (btnLoginMs) btnLoginMs.style.display = 'none';
@@ -498,6 +554,12 @@ async function initializeAppClient() {
 			}
 
 			userDisplay.textContent = "Usuario anónimo";
+			canWrite = false;
+			try {
+				btnSubirDocumento.style.display = 'none';
+				formAnuncio.querySelector('button[type="submit"]').disabled = true;
+				formAgenda.querySelector('button[type="submit"]').disabled = true;
+			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'none';
 			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
 			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
@@ -597,6 +659,7 @@ calendarGrid.addEventListener('click', (e) => {
 	}
 	// Detección de botón eliminar
 	if (e.target.classList.contains('delete-btn')) {
+		if (!canWrite) { try { alert('No tienes permisos para eliminar actividades.'); } catch(_){} return; }
 		const activityId = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar esta actividad?', async () => {
 			await deleteDoc(doc(getPublicCollection('actividades'), activityId));
@@ -616,6 +679,7 @@ nextMonthBtn.addEventListener('click', () => {
 
 // Eventos del formulario de documentos
 btnSubirDocumento.addEventListener('click', () => {
+	if (!canWrite) { try { alert('No tienes permisos para subir documentos.'); } catch(_){} return; }
 	modalDocumento.style.display = 'flex';
 	modalDocumento.setAttribute('aria-hidden', 'false');
 	// Enfocar el primer campo del formulario
@@ -638,7 +702,7 @@ window.addEventListener('click', (event) => {
 
 formDocumento.addEventListener('submit', async (e) => {
 	e.preventDefault();
-	if (!requireAuthForWrites()) return;
+	if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para subir documentos.'); } catch(_){} return; }
 	const titulo = document.getElementById('documento-titulo').value;
 	const archivo = document.getElementById('documento-archivo').files[0];
     
@@ -660,7 +724,7 @@ formDocumento.addEventListener('submit', async (e) => {
 
 documentosGrid.addEventListener('click', (e) => {
 	if (e.target.classList.contains('eliminar')) {
-		if (!requireAuthForWrites()) return;
+		if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para eliminar documentos.'); } catch(_){} return; }
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar este documento?', async () => {
 			await deleteDoc(doc(getPublicCollection('documentos'), id));
@@ -671,7 +735,7 @@ documentosGrid.addEventListener('click', (e) => {
 // Evento del formulario de anuncios
 formAnuncio.addEventListener('submit', async (e) => {
 	e.preventDefault();
-	if (!requireAuthForWrites()) return;
+	if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para publicar anuncios.'); } catch(_){} return; }
 	const textoAnuncio = document.getElementById('anuncio-texto').value;
 	await addDoc(getPublicCollection('anuncios'), {
 		texto: textoAnuncio,
@@ -683,7 +747,7 @@ formAnuncio.addEventListener('submit', async (e) => {
 
 listaAnuncios.addEventListener('click', (e) => {
 	if (e.target.classList.contains('eliminar')) {
-		if (!requireAuthForWrites()) return;
+		if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para eliminar anuncios.'); } catch(_){} return; }
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar este anuncio?', async () => {
 			await deleteDoc(doc(getPublicCollection('anuncios'), id));
@@ -694,7 +758,7 @@ listaAnuncios.addEventListener('click', (e) => {
 // Evento del formulario de agenda
 formAgenda.addEventListener('submit', async (e) => {
 	e.preventDefault();
-	if (!requireAuthForWrites()) return;
+	if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para crear o editar reuniones.'); } catch(_){} return; }
 	const id = document.getElementById('agenda-id').value;
 	const titulo = document.getElementById('agenda-titulo').value;
 	const fecha = document.getElementById('agenda-fecha').value;
@@ -732,7 +796,7 @@ formAgenda.addEventListener('submit', async (e) => {
 // Eventos de la lista de agenda (delegación de eventos)
 listaAgenda.addEventListener('click', async (e) => {
 	if (e.target.classList.contains('eliminar')) {
-		if (!requireAuthForWrites()) return;
+		if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para eliminar reuniones.'); } catch(_){} return; }
 		const id = e.target.dataset.id;
 		showConfirmationModal('¿Estás seguro de que quieres eliminar esta reunión?', async () => {
 			await deleteDoc(doc(getPublicCollection('agenda'), id));
