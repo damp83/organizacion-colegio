@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
@@ -59,7 +59,7 @@ let confirmationCallback = null;
         
 // Variables de estado
 let currentDate = new Date();
-let auth, db, userId;
+let auth, db, userId, isAdmin = false;
 // Cache de actividades para mantenerlas al cambiar de mes
 let actividadesMapCache = new Map();
 
@@ -174,11 +174,16 @@ function renderizarDocumentos(documentos) {
 		strong2.textContent = 'Fecha de subida:';
 		p2.appendChild(strong2);
 		p2.append(' ' + (d.fecha || ''));
-		const btn = document.createElement('button');
-		btn.className = 'btn-accion eliminar';
-		btn.dataset.id = d.id;
-		btn.textContent = 'Eliminar';
-		card.append(h3, p1, p2, btn);
+		const elements = [h3, p1, p2];
+		const canManage = isAdmin || (d && d.createdBy && d.createdBy === userId);
+		if (canManage) {
+			const btn = document.createElement('button');
+			btn.className = 'btn-accion eliminar';
+			btn.dataset.id = d.id;
+			btn.textContent = 'Eliminar';
+			elements.push(btn);
+		}
+		card.append(...elements);
 		documentosGrid.appendChild(card);
 	});
 }
@@ -197,12 +202,17 @@ function renderizarAnuncios(anuncios) {
 		item.className = 'anuncio-item';
 		const text = document.createElement('span');
 		text.textContent = anuncio.texto || '';
-		const btn = document.createElement('button');
-		btn.className = 'btn-accion eliminar';
-		btn.style.marginLeft = 'auto';
-		btn.dataset.id = anuncio.id;
-		btn.textContent = 'Eliminar';
-		item.append(text, btn);
+		const elements = [text];
+		const canManage = isAdmin || (anuncio && anuncio.createdBy && anuncio.createdBy === userId);
+		if (canManage) {
+			const btn = document.createElement('button');
+			btn.className = 'btn-accion eliminar';
+			btn.style.marginLeft = 'auto';
+			btn.dataset.id = anuncio.id;
+			btn.textContent = 'Eliminar';
+			elements.push(btn);
+		}
+		item.append(...elements);
 		listaAnuncios.appendChild(item);
 	});
 }
@@ -257,10 +267,17 @@ function renderizarActividades() {
 		activities.forEach(act => {
 			const activityItem = document.createElement('div');
 			activityItem.className = 'activity-item';
-			activityItem.innerHTML = `
-				<span>${act.title}</span>
-				<button class="delete-btn" data-id="${act.id}">&times;</button>
-			`;
+			const titleSpan = document.createElement('span');
+			titleSpan.textContent = act.title || '';
+			activityItem.appendChild(titleSpan);
+			const canManage = isAdmin || (act && act.createdBy && act.createdBy === userId);
+			if (canManage) {
+				const del = document.createElement('button');
+				del.className = 'delete-btn';
+				del.dataset.id = act.id;
+				del.textContent = '×';
+				activityItem.appendChild(del);
+			}
 			cell.appendChild(activityItem);
 		});
 	});
@@ -286,15 +303,19 @@ function renderizarAgenda(agenda) {
 		const badge = document.createElement('span');
 		badge.className = `status-badge ${statusClass}`;
 		badge.textContent = item.status || '';
-		const editBtn = document.createElement('button');
-		editBtn.className = 'btn-accion editar';
-		editBtn.dataset.id = item.id;
-		editBtn.textContent = 'Editar';
-		const delBtn = document.createElement('button');
-		delBtn.className = 'btn-accion eliminar';
-		delBtn.dataset.id = item.id;
-		delBtn.textContent = 'Eliminar';
-		actions.append(badge, editBtn, delBtn);
+		actions.append(badge);
+		const canManage = isAdmin || (item && item.createdBy && item.createdBy === userId);
+		if (canManage) {
+			const editBtn = document.createElement('button');
+			editBtn.className = 'btn-accion editar';
+			editBtn.dataset.id = item.id;
+			editBtn.textContent = 'Editar';
+			const delBtn = document.createElement('button');
+			delBtn.className = 'btn-accion eliminar';
+			delBtn.dataset.id = item.id;
+			delBtn.textContent = 'Eliminar';
+			actions.append(editBtn, delBtn);
+		}
 		header.append(h4, actions);
 		const pFecha = document.createElement('p');
 		const s1 = document.createElement('strong'); s1.textContent = 'Fecha:';
@@ -432,7 +453,11 @@ async function initializeAppClient() {
 	onAuthStateChanged(auth, async (user) => {
 		if (user) {
 			userId = user.uid;
-			userDisplay.textContent = `ID de Usuario: ${userId}`;
+			try {
+				const res = await getIdTokenResult(user, true);
+				isAdmin = !!(res && res.claims && res.claims.admin);
+			} catch (_) { isAdmin = false; }
+			userDisplay.textContent = `ID de Usuario: ${userId}${isAdmin ? ' (admin)' : ''}`;
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1

@@ -144,3 +144,67 @@ exports.seedPublicData = onRequest(async (req, res) => {
 		res.status(500).json({error: (err && err.message) ? err.message : String(err)});
 	}
 });
+
+// Helpers for admin token from env or functions config
+function getAdminTokenFromEnv() {
+	let t = process.env.ADMIN_TOKEN || process.env.admin_token;
+	try {
+		if (!t) {
+			const cfg = require("firebase-functions").config();
+			t = (cfg && cfg.admin && cfg.admin.token) ? cfg.admin.token : t;
+		}
+	} catch (_) {}
+	return t;
+}
+
+async function resolveUid(dbAuth, uid, email) {
+	if (uid) return uid;
+	if (email) {
+		const rec = await dbAuth.getUserByEmail(email);
+		return rec.uid;
+	}
+	throw new Error("Provide uid or email");
+}
+
+// POST: set admin=true/false for a user (by uid or email)
+exports.setAdminClaim = onRequest(async (req, res) => {
+	if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+	const token = req.get("x-admin-token") || req.query.token;
+	const expected = getAdminTokenFromEnv();
+	if (!expected) { res.status(500).json({error: "ADMIN_TOKEN not configured"}); return; }
+	if (!token || token !== expected) { res.status(401).json({error: "Unauthorized"}); return; }
+	try {
+		const dbAuth = admin.auth();
+		const {uid, email, admin: adminFlag} = (typeof req.body === 'object' && req.body) ? req.body : {};
+		const targetUid = await resolveUid(dbAuth, uid, email);
+		const user = await dbAuth.getUser(targetUid);
+		const claims = Object.assign({}, user.customClaims || {}, {admin: !!adminFlag});
+		await dbAuth.setCustomUserClaims(targetUid, claims);
+		res.json({ok: true, uid: targetUid, admin: !!adminFlag});
+	} catch (err) {
+		logger.error("setAdminClaim error", err);
+		res.status(500).json({error: (err && err.message) ? err.message : String(err)});
+	}
+});
+
+// POST: revoke admin (admin=false)
+exports.revokeAdminClaim = onRequest(async (req, res) => {
+	if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+	const token = req.get("x-admin-token") || req.query.token;
+	const expected = getAdminTokenFromEnv();
+	if (!expected) { res.status(500).json({error: "ADMIN_TOKEN not configured"}); return; }
+	if (!token || token !== expected) { res.status(401).json({error: "Unauthorized"}); return; }
+	try {
+		const dbAuth = admin.auth();
+		const {uid, email} = (typeof req.body === 'object' && req.body) ? req.body : {};
+		const targetUid = await resolveUid(dbAuth, uid, email);
+		const user = await dbAuth.getUser(targetUid);
+		const claims = Object.assign({}, user.customClaims || {});
+		claims.admin = false;
+		await dbAuth.setCustomUserClaims(targetUid, claims);
+		res.json({ok: true, uid: targetUid, admin: false});
+	} catch (err) {
+		logger.error("revokeAdminClaim error", err);
+		res.status(500).json({error: (err && err.message) ? err.message : String(err)});
+	}
+});
