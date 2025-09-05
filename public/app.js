@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
 setLogLevel('debug');
@@ -300,6 +300,19 @@ async function initializeAppClient() {
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
 	db = getFirestore(app);
+
+	// Conectar a emuladores si está activado o si estamos en localhost por defecto
+	const useEmulators = (typeof window !== 'undefined' && typeof window.__use_emulators !== 'undefined')
+		? !!window.__use_emulators
+		: (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+	if (useEmulators) {
+		try {
+			connectAuthEmulator(auth, 'http://localhost:9099');
+		} catch (_) {}
+		try {
+			connectFirestoreEmulator(db, 'localhost', 8080);
+		} catch (_) {}
+	}
 
 	onAuthStateChanged(auth, async (user) => {
 		if (user) {
