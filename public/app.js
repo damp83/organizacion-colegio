@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
@@ -441,6 +441,13 @@ async function initializeAppClient() {
 	auth = getAuth(app);
 	db = getFirestore(app);
 
+	// Completar flujos de login por redirección (si los hay)
+	try {
+		await getRedirectResult(auth);
+	} catch (e) {
+		console.warn('Redirect login no completado:', e?.message || e);
+	}
+
 	// Conectar a emuladores si está activado o si estamos en localhost por defecto
 	const useEmulators = (typeof window !== 'undefined' && typeof window.__use_emulators !== 'undefined')
 		? !!window.__use_emulators
@@ -517,7 +524,17 @@ if (btnLoginGoogle) {
 		try {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
-			await signInWithPopup(auth, provider);
+			provider.setCustomParameters({ prompt: 'select_account' });
+			try {
+				await signInWithPopup(auth, provider);
+			} catch (e) {
+				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					await signInWithRedirect(auth, provider);
+				} else {
+					throw e;
+				}
+			}
 		} catch (e) {
 			console.error('Error al iniciar con Google', e);
 		}
@@ -529,7 +546,17 @@ if (btnLoginMs) {
 		try {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
-			await signInWithPopup(auth, provider);
+			provider.setCustomParameters({ prompt: 'select_account' });
+			try {
+				await signInWithPopup(auth, provider);
+			} catch (e) {
+				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					await signInWithRedirect(auth, provider);
+				} else {
+					throw e;
+				}
+			}
 		} catch (e) {
 			console.error('Error al iniciar con Microsoft', e);
 		}
