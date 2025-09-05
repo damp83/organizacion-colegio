@@ -68,6 +68,9 @@ let auth, db, userId, isAdmin = false;
 // Permisos de escritura calculados en cliente (coincidir con reglas): admin o email verificado en allowlist
 let canWrite = false;
 let lastRedirectError = null;
+let lastRedirectResultChecked = false;
+let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
+let triedPopupFallback = false;
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -501,7 +504,13 @@ async function initializeAppClient() {
 
 	// Completar flujos de login por redirección (si los hay)
 	try {
-		await getRedirectResult(auth);
+		const redirectRes = await getRedirectResult(auth);
+		if (redirectRes) {
+			console.log('[auth] Resultado redirect:', redirectRes?.user?.uid, redirectRes?.providerId, redirectRes?.user?.email);
+		} else {
+			console.log('[auth] No hay resultado de redirect pendiente');
+		}
+		lastRedirectResultChecked = true;
 	} catch (e) {
 		lastRedirectError = e;
 		const code = (e && e.code) ? String(e.code) : '';
@@ -548,6 +557,36 @@ async function initializeAppClient() {
 			seedDemoDataIfRequested();
 			// Resetear bandera de logout manual una vez haya sesión
 			didManualLogout = false;
+			// Fallback: si intentamos login con redirect y seguimos anónimos, probar popup una vez
+			if (user.isAnonymous && lastLoginAttempt && !triedPopupFallback) {
+				const elapsed = Date.now() - lastLoginAttempt.ts;
+				if (elapsed < 15000) {
+					if (lastLoginAttempt.provider === 'google') {
+						try {
+							triedPopupFallback = true;
+							console.log('[auth] Intentando fallback popup Google');
+							const provider = new GoogleAuthProvider();
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithPopup(auth, provider);
+							return; // esperar siguiente onAuthStateChanged
+						} catch (err) {
+							console.warn('[auth] Fallback popup Google falló:', err?.code, err?.message);
+						}
+					}
+					if (lastLoginAttempt.provider === 'microsoft') {
+						try {
+							triedPopupFallback = true;
+							console.log('[auth] Intentando fallback popup Microsoft');
+							const provider = new OAuthProvider('microsoft.com');
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithPopup(auth, provider);
+							return;
+						} catch (err) {
+							console.warn('[auth] Fallback popup Microsoft falló:', err?.code, err?.message);
+						}
+					}
+				}
+			}
 		} else {
 			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
 			if (didManualLogout) {
@@ -613,7 +652,8 @@ if (btnLoginGoogle) {
 		try {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
-			provider.setCustomParameters({ prompt: 'select_account', hd: 'murciaeduca.es' });
+			provider.setCustomParameters({ prompt: 'select_account' });
+			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			if (AUTH_MODE === 'popup') {
 				try {
 					await signInWithPopup(auth, provider);
@@ -641,6 +681,7 @@ if (btnLoginMs) {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
+			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			if (AUTH_MODE === 'popup') {
 				try {
 					await signInWithPopup(auth, provider);
