@@ -2,8 +2,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebas
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-// Establecer nivel de log para depuración de Firestore
-setLogLevel('debug');
+// Reducir verbosidad de Firestore en consola
+setLogLevel('error');
 
 // Variables globales proporcionadas por el entorno
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -23,6 +23,8 @@ try {
 	firebaseConfig = {};
 }
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Modo de autenticación preferido: 'redirect' elimina los warnings de popups
+const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'redirect';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -531,15 +533,20 @@ if (btnLoginGoogle) {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
-			try {
-				await signInWithPopup(auth, provider);
-			} catch (e) {
-				const code = e && e.code ? String(e.code) : '';
-				if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					await signInWithRedirect(auth, provider);
-				} else {
-					throw e;
+			if (AUTH_MODE === 'popup') {
+				try {
+					await signInWithPopup(auth, provider);
+				} catch (e) {
+					const code = e && e.code ? String(e.code) : '';
+					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						await signInWithRedirect(auth, provider);
+					} else {
+						// Para evitar warnings en popup, forzamos redirect igualmente
+						await signInWithRedirect(auth, provider);
+					}
 				}
+			} else {
+				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Google', e);
@@ -553,15 +560,19 @@ if (btnLoginMs) {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
-			try {
-				await signInWithPopup(auth, provider);
-			} catch (e) {
-				const code = e && e.code ? String(e.code) : '';
-				if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					await signInWithRedirect(auth, provider);
-				} else {
-					throw e;
+			if (AUTH_MODE === 'popup') {
+				try {
+					await signInWithPopup(auth, provider);
+				} catch (e) {
+					const code = e && e.code ? String(e.code) : '';
+					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+						await signInWithRedirect(auth, provider);
+					} else {
+						await signInWithRedirect(auth, provider);
+					}
 				}
+			} else {
+				await signInWithRedirect(auth, provider);
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Microsoft', e);
