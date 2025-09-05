@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithRedirect, getRedirectResult, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Reducir verbosidad de Firestore en consola
@@ -74,6 +74,7 @@ let lastRedirectResultChecked = false;
 let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
 let triedPopupFallback = false;
 const LS_REDIRECT_MARK = 'pendingRedirectProvider';
+let redirectAutoRetryDone = false;
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -542,7 +543,26 @@ async function initializeAppClient() {
 			const pending = localStorage.getItem(LS_REDIRECT_MARK);
 			if (pending) {
 				console.warn('[auth] Redirect marcado pero sin resultado. Posibles causas: dominios no autorizados, bloqueo cookies, política escolar.');
-				try { alert('No se completó el inicio de sesión con Google/Microsoft. Revisa: (1) dominios autorizados en Firebase Auth, (2) sin bloqueadores/cookies, (3) vuelve a intentarlo.'); } catch(_){}
+				try { alert('No se completó el inicio de sesión. Reintentando automáticamente...'); } catch(_){ }
+				if (!redirectAutoRetryDone) {
+					redirectAutoRetryDone = true;
+					try {
+						await setPersistence(auth, browserLocalPersistence);
+						if (pending === 'google') {
+							const provider = new GoogleAuthProvider();
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithRedirect(auth, provider);
+							return;
+						} else if (pending === 'microsoft') {
+							const provider = new OAuthProvider('microsoft.com');
+							provider.setCustomParameters({ prompt: 'select_account' });
+							await signInWithRedirect(auth, provider);
+							return;
+						}
+					} catch(retryErr) {
+						console.warn('[auth] Reintento redirect falló:', retryErr?.code, retryErr?.message);
+					}
+				}
 				localStorage.removeItem(LS_REDIRECT_MARK);
 			}
 		}
