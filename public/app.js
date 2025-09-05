@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 // Establecer nivel de log para depuración de Firestore
@@ -30,7 +30,8 @@ const sections = document.querySelectorAll('.seccion');
 const documentosGrid = document.querySelector('.documentos-grid');
 const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
-const btnLogin = document.getElementById('btn-login');
+const btnLoginGoogle = document.getElementById('btn-login-google');
+const btnLoginMs = document.getElementById('btn-login-ms');
 
 // Calendario
 const calendarGrid = document.getElementById('calendar-grid');
@@ -62,6 +63,7 @@ let confirmationCallback = null;
 // Variables de estado
 let currentDate = new Date();
 let auth, db, userId, isAdmin = false;
+let didManualLogout = false;
 // Cache de actividades para mantenerlas al cambiar de mes
 let actividadesMapCache = new Map();
 
@@ -461,12 +463,26 @@ async function initializeAppClient() {
 			} catch (_) { isAdmin = false; }
 			userDisplay.textContent = `ID de Usuario: ${userId}${isAdmin ? ' (admin)' : ''}`;
 			if (btnLogout) btnLogout.style.display = 'inline-block';
-			if (btnLogin) btnLogin.style.display = 'none';
+			if (btnLoginGoogle) btnLoginGoogle.style.display = 'none';
+			if (btnLoginMs) btnLoginMs.style.display = 'none';
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1
 			seedDemoDataIfRequested();
+			// Resetear bandera de logout manual una vez haya sesión
+			didManualLogout = false;
 		} else {
+			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
+			if (didManualLogout) {
+				userId = null;
+				isAdmin = false;
+				userDisplay.textContent = "No conectado";
+				if (btnLogout) btnLogout.style.display = 'none';
+				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+				return;
+			}
+
 			userDisplay.textContent = "Usuario anónimo";
 			if (btnLogout) btnLogout.style.display = 'none';
 			if (btnLogin) btnLogin.style.display = 'inline-block';
@@ -488,6 +504,7 @@ async function initializeAppClient() {
 if (btnLogout) {
 	btnLogout.addEventListener('click', async () => {
 		try {
+			didManualLogout = true;
 			await signOut(auth);
 		} catch (e) {
 			console.error('Error al cerrar sesión', e);
@@ -495,16 +512,26 @@ if (btnLogout) {
 	});
 }
 
-if (btnLogin) {
-	btnLogin.addEventListener('click', async () => {
+if (btnLoginGoogle) {
+	btnLoginGoogle.addEventListener('click', async () => {
 		try {
-			if (initialAuthToken) {
-				await signInWithCustomToken(auth, initialAuthToken);
-			} else {
-				await signInAnonymously(auth);
-			}
+			didManualLogout = false;
+			const provider = new GoogleAuthProvider();
+			await signInWithPopup(auth, provider);
 		} catch (e) {
-			console.error('Error al iniciar sesión', e);
+			console.error('Error al iniciar con Google', e);
+		}
+	});
+}
+
+if (btnLoginMs) {
+	btnLoginMs.addEventListener('click', async () => {
+		try {
+			didManualLogout = false;
+			const provider = new OAuthProvider('microsoft.com');
+			await signInWithPopup(auth, provider);
+		} catch (e) {
+			console.error('Error al iniciar con Microsoft', e);
 		}
 	});
 }
