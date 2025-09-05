@@ -71,8 +71,7 @@ let auth, db, userId, isAdmin = false;
 let canWrite = false;
 let lastRedirectError = null;
 let lastRedirectResultChecked = false;
-let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
-let triedPopupFallback = false;
+// Eliminados lastLoginAttempt y triedPopupFallback para simplificar flujo sólo redirect
 const LS_REDIRECT_MARK = 'pendingRedirectProvider';
 let redirectAutoRetryDone = false;
 const ALLOWLIST_EMAILS = new Set([
@@ -591,36 +590,7 @@ async function initializeAppClient() {
 			seedDemoDataIfRequested();
 			// Resetear bandera de logout manual una vez haya sesión
 			didManualLogout = false;
-			// Fallback: si intentamos login con redirect y seguimos anónimos, probar popup una vez
-			if (user.isAnonymous && lastLoginAttempt && !triedPopupFallback) {
-				const elapsed = Date.now() - lastLoginAttempt.ts;
-				if (elapsed < 15000) {
-					if (lastLoginAttempt.provider === 'google') {
-						try {
-							triedPopupFallback = true;
-							console.log('[auth] Intentando fallback popup Google');
-							const provider = new GoogleAuthProvider();
-							provider.setCustomParameters({ prompt: 'select_account' });
-							await signInWithPopup(auth, provider);
-							return; // esperar siguiente onAuthStateChanged
-						} catch (err) {
-							console.warn('[auth] Fallback popup Google falló:', err?.code, err?.message);
-						}
-					}
-					if (lastLoginAttempt.provider === 'microsoft') {
-						try {
-							triedPopupFallback = true;
-							console.log('[auth] Intentando fallback popup Microsoft');
-							const provider = new OAuthProvider('microsoft.com');
-							provider.setCustomParameters({ prompt: 'select_account' });
-							await signInWithPopup(auth, provider);
-							return;
-						} catch (err) {
-							console.warn('[auth] Fallback popup Microsoft falló:', err?.code, err?.message);
-						}
-					}
-				}
-			}
+			// Fallback popup eliminado: sólo usamos redirect para evitar políticas que bloquean ventanas emergentes
 		} else {
 			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
 			if (didManualLogout) {
@@ -674,42 +644,22 @@ if (btnLogout) {
 }
 
 if (btnLoginGoogle) {
-	btnLoginGoogle.addEventListener('click', async (ev) => {
+	btnLoginGoogle.addEventListener('click', async () => {
 		try {
+			console.log('[auth] Click Google -> preparando redirect');
 			didManualLogout = false;
+			await setPersistence(auth, browserLocalPersistence);
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'google', ts: Date.now() };
-			const forcePopup = ev.altKey; // Alt+Click para forzar popup (debug)
-			if (forcePopup) {
-				console.log('[auth] Forzando popup (Alt+Click)');
-				await signInWithPopup(auth, provider);
-				return;
-			}
-			if (AUTH_MODE === 'popup') {
-				try {
-					await signInWithPopup(auth, provider);
-				} catch (e) {
-					const code = e && e.code ? String(e.code) : '';
-					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'google');
-						await signInWithRedirect(auth, provider);
-					} else {
-						localStorage.setItem(LS_REDIRECT_MARK, 'google');
-						await signInWithRedirect(auth, provider);
-					}
-				}
-			} else {
-				localStorage.setItem(LS_REDIRECT_MARK, 'google');
-				await signInWithRedirect(auth, provider);
-			}
+			localStorage.setItem(LS_REDIRECT_MARK, 'google');
+			await signInWithRedirect(auth, provider);
+			console.log('[auth] signInWithRedirect (google) lanzado');
 		} catch (e) {
-			console.error('Error al iniciar con Google', e);
+			console.error('Error al iniciar con Google (redirect puro)', e?.code, e?.message);
 		}
 	});
 }
 
-if (btnLoginMs) {
 if (btnLoginGuest) {
 	btnLoginGuest.addEventListener('click', async () => {
 		try {
@@ -718,37 +668,19 @@ if (btnLoginGuest) {
 		} catch(e){ console.error('Anon login fallo', e); }
 	});
 }
-	btnLoginMs.addEventListener('click', async (ev) => {
+if (btnLoginMs) {
+	btnLoginMs.addEventListener('click', async () => {
 		try {
+			console.log('[auth] Click Microsoft -> preparando redirect');
 			didManualLogout = false;
+			await setPersistence(auth, browserLocalPersistence);
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
-			const forcePopup = ev.altKey;
-			if (forcePopup) {
-				console.log('[auth] Forzando popup Microsoft (Alt+Click)');
-				await signInWithPopup(auth, provider);
-				return;
-			}
-			if (AUTH_MODE === 'popup') {
-				try {
-					await signInWithPopup(auth, provider);
-				} catch (e) {
-					const code = e && e.code ? String(e.code) : '';
-					if (code.includes('popup-closed-by-user') || code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-						await signInWithRedirect(auth, provider);
-					} else {
-						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-						await signInWithRedirect(auth, provider);
-					}
-				}
-			} else {
-				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-				await signInWithRedirect(auth, provider);
-			}
+			localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+			await signInWithRedirect(auth, provider);
+			console.log('[auth] signInWithRedirect (microsoft) lanzado');
 		} catch (e) {
-			console.error('Error al iniciar con Microsoft', e);
+			console.error('Error al iniciar con Microsoft (redirect puro)', e?.code, e?.message);
 		}
 	});
 }
