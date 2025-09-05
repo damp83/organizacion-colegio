@@ -4,8 +4,8 @@ body {
 	font-family: 'Inter', sans-serif;
 	margin: 0;
 	padding: 0;
-	background-color: #f0f4f8;
-	color: #333;
+	background-color: #f8fafc; /* slate-50 */
+	color: #111827; /* gray-900 */
 	display: flex;
 	justify-content: center;
 	align-items: flex-start;
@@ -16,19 +16,19 @@ body {
 .app-container {
 	background-color: #ffffff;
 	border-radius: 16px;
-	box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 	width: 90%;
 	max-width: 1100px;
 	overflow: hidden;
-	border: 1px solid #e2e8f0;
+	border: 1px solid #e5e7eb; /* gray-200 */
 }
 
 header {
-	background-color: #2c3e50;
+	background-color: #111827; /* gray-900 */
 	color: white;
 	padding: 30px;
 	text-align: center;
-	border-bottom: 4px solid #34495e;
+	border-bottom: 4px solid #1f2937; /* gray-800 */
 	position: relative;
 }
 
@@ -38,20 +38,27 @@ header h1 {
 	font-size: 2.5rem;
 }
 
+.subtitle {
+	margin: 6px 0 0;
+	font-size: 1rem;
+	font-weight: 500;
+	color: #9ca3af; /* gray-400 */
+}
+
 .user-info {
 	position: absolute;
 	bottom: 10px;
 	left: 10px;
 	font-size: 0.8rem;
-	color: #bdc3c7;
+	color: #9ca3af; /* gray-400 */
 }
 
 .nav-bar {
-	background-color: #34495e;
+	background-color: #1f2937; /* gray-800 */
 	display: flex;
 	justify-content: center;
 	padding: 12px 0;
-	border-top: 1px solid #4a627a;
+	border-top: 1px solid #374151; /* gray-700 */
 }
 
 .nav-bar button {
@@ -68,13 +75,13 @@ header h1 {
 }
 
 .nav-bar button:hover {
-	background-color: #4a627a;
+	background-color: #374151; /* gray-700 */
 	transform: translateY(-2px);
-	box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+	box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .nav-bar button.active {
-	background-color: #1a60b9;
+	background-color: #2563eb; /* blue-600 */
 	box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.2);
 	transform: translateY(-2px);
 }
@@ -99,8 +106,8 @@ main {
 
 h2 {
 	font-size: 2rem;
-	color: #2c3e50;
-	border-bottom: 2px solid #e0eaf1;
+	color: #111827; /* gray-900 */
+	border-bottom: 2px solid #e5e7eb; /* gray-200 */
 	padding-bottom: 12px;
 	margin-top: 0;
 	margin-bottom: 30px;
@@ -108,7 +115,7 @@ h2 {
 
 .loading-message {
 	text-align: center;
-	color: #7f8c8d;
+	color: #6b7280; /* gray-500 */
 	font-style: italic;
 }
 
@@ -119,11 +126,11 @@ h2 {
 }
 
 .documento-card {
-	background-color: #f7f9fb;
+	background-color: #ffffff;
 	border-radius: 10px;
-	border: 1px solid #dbe2e9;
+	border: 1px solid #e5e7eb;
 	padding: 25px;
-	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 	display: flex;
 	flex-direction: column;
@@ -132,25 +139,25 @@ h2 {
 
 .documento-card:hover {
 	transform: translateY(-5px);
-	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
 }
 
 .documento-card h3 {
 	margin-top: 0;
 	font-size: 1.4rem;
-	color: #2980b9;
+	color: #111827;
 }
         
 .documento-card p {
 	margin: 5px 0 0;
 	font-size: 0.95rem;
-	color: #7f8c8d;
+	color: #6b7280;
 }
 
 .anuncio-item {
-	background-color: #ecf0f1;
+	background-color: #f3f4f6; /* gray-100 */
 	padding: 20px;
-	border-left: 5px solid #3498db;
+	border-left: 5px solid #2563eb; /* blue-600 */
 	border-radius: 8px;
 	margin-bottom: 20px;
 	font-size: 1.1rem;
@@ -159,7 +166,7 @@ h2 {
 }
 
 .btn-accion {
-	background-color: #27ae60;
+	background-color: #2563eb; /* blue-600 */
 	color: white;
 	border: none;
 	padding: 14px 30px;
@@ -178,21 +185,21 @@ h2 {
 }
 
 .btn-accion:hover {
-	background-color: #229954;
+	background-color: #1d4ed8; /* blue-700 */
 	transform: translateY(-2px);
 }
 .btn-accion.eliminar {
-	background-color: #e74c3c;
+	background-color: #dc2626; /* red-600 */
 }
 .btn-accion.eliminar:hover {
-	background-color: #c0392b;
+	background-color: #b91c1c; /* red-700 */
 }
 
 .btn-accion.editar {
-	background-color: #f39c12;
+	background-color: #d97706; /* amber-600 */
 }
 .btn-accion.editar:hover {
-	background-color: #d35400;
+	background-color: #b45309; /* amber-700 */
 }
 
 /* Estilos del nuevo calendario de cuadrícula */
@@ -203,11 +210,11 @@ h2 {
 	margin-bottom: 20px;
 	font-size: 1.5rem;
 	font-weight: 700;
-	color: #2c3e50;
+	color: #111827;
 }
 
 .calendar-nav button {
-	background-color: #e0eaf1;
+	background-color: #e5e7eb; /* gray-200 */
 	border: none;
 	padding: 10px 15px;
 	border-radius: 8px;
@@ -217,34 +224,34 @@ h2 {
 }
         
 .calendar-nav button:hover {
-	background-color: #cddbe7;
+	background-color: #d1d5db; /* gray-300 */
 }
 
 .calendar-grid {
 	display: grid;
 	grid-template-columns: repeat(7, 1fr);
-	border: 1px solid #dbe2e9;
+	border: 1px solid #e5e7eb;
 	border-radius: 10px;
 	overflow: hidden;
 	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
 }
         
 .day-header {
-	background-color: #f7f9fb;
+	background-color: #f9fafb; /* gray-50 */
 	padding: 15px 5px;
 	text-align: center;
 	font-weight: 500;
-	border-bottom: 1px solid #dbe2e9;
-	border-right: 1px solid #dbe2e9;
-	color: #2c3e50;
+	border-bottom: 1px solid #e5e7eb;
+	border-right: 1px solid #e5e7eb;
+	color: #374151; /* gray-700 */
 	font-size: 0.95rem;
 }
         
 .day-cell {
 	min-height: 120px;
 	padding: 10px;
-	border-right: 1px solid #dbe2e9;
-	border-bottom: 1px solid #dbe2e9;
+	border-right: 1px solid #e5e7eb;
+	border-bottom: 1px solid #e5e7eb;
 	position: relative;
 	background-color: white;
 	transition: background-color 0.2s ease;
@@ -256,24 +263,24 @@ h2 {
 }
         
 .day-cell:hover {
-	background-color: #f0f4f8;
+	background-color: #f3f4f6;
 }
 
 .day-number {
 	font-size: 1.2rem;
 	font-weight: 700;
-	color: #2c3e50;
+	color: #111827;
 }
         
 .day-cell.other-month {
-	background-color: #f7f9fb;
-	color: #b0b0b0;
+	background-color: #f9fafb;
+	color: #9ca3af;
 	pointer-events: none;
 }
         
 .activity-item {
-	background-color: #e9f5ff;
-	color: #2980b9;
+	background-color: #eff6ff; /* blue-50 */
+	color: #1d4ed8; /* blue-700 */
 	border-radius: 4px;
 	padding: 5px 8px;
 	font-size: 0.8rem;
@@ -288,7 +295,7 @@ h2 {
         
 .activity-item .delete-btn {
 	background-color: transparent;
-	color: #e74c3c;
+	color: #ef4444; /* red-500 */
 	border: none;
 	padding: 0;
 	font-size: 1.2rem;
@@ -299,7 +306,7 @@ h2 {
 .input-activity {
 	width: 100%;
 	padding: 5px;
-	border: 1px solid #3498db;
+	border: 1px solid #cbd5e1; /* slate-300 */
 	border-radius: 4px;
 	font-size: 0.9rem;
 	box-sizing: border-box;
@@ -320,14 +327,14 @@ h2 {
 	flex-direction: column;
 	gap: 15px;
 	margin-bottom: 40px;
-	border-bottom: 2px solid #e0eaf1;
+	border-bottom: 2px solid #e5e7eb;
 	padding-bottom: 30px;
 }
         
 .anuncios-form textarea {
 	width: 100%;
 	padding: 12px;
-	border: 1px solid #dbe2e9;
+	border: 1px solid #e5e7eb;
 	border-radius: 8px;
 	box-sizing: border-box;
 	font-family: 'Inter', sans-serif;
@@ -342,13 +349,13 @@ h2 {
 	flex-direction: column;
 	gap: 15px;
 	margin-bottom: 40px;
-	border-bottom: 2px solid #e0eaf1;
+	border-bottom: 2px solid #e5e7eb;
 	padding-bottom: 30px;
 }
 
 .agenda-form input, .agenda-form textarea, .agenda-form select {
 	padding: 12px;
-	border: 1px solid #dbe2e9;
+	border: 1px solid #e5e7eb;
 	border-radius: 8px;
 	box-sizing: border-box;
 	font-family: 'Inter', sans-serif;
@@ -361,8 +368,8 @@ h2 {
 }
         
 .agenda-item {
-	background-color: #f7f9fb;
-	border-left: 5px solid #2980b9;
+	background-color: #ffffff;
+	border-left: 5px solid #2563eb;
 	padding: 20px;
 	border-radius: 8px;
 	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
@@ -379,7 +386,7 @@ h2 {
 
 .agenda-item .item-header h4 {
 	margin: 0;
-	color: #2c3e50;
+	color: #111827;
 	font-size: 1.2rem;
 }
 
@@ -390,7 +397,7 @@ h2 {
 
 .agenda-item p {
 	margin: 0;
-	color: #7f8c8d;
+	color: #6b7280;
 	font-size: 0.9rem;
 }
 
@@ -404,10 +411,10 @@ h2 {
 	white-space: nowrap;
 }
 
-.status-programada { background-color: #3498db; }
-.status-en-curso { background-color: #f39c12; }
-.status-finalizada { background-color: #27ae60; }
-.status-cancelada { background-color: #e74c3c; }
+.status-programada { background-color: #2563eb; }
+.status-en-curso { background-color: #d97706; }
+.status-finalizada { background-color: #16a34a; }
+.status-cancelada { background-color: #dc2626; }
 .modal {
 	display: none;
 	position: fixed;
