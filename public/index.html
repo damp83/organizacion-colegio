@@ -29,8 +29,13 @@
       </button>
       <div class="user-info">Cargando usuario...</div>
       <div class="auth-actions">
-        <button id="btn-login-google" class="btn-accion">Entrar con Google</button>
-        <button id="btn-login-ms" class="btn-accion">Entrar con Microsoft</button>
+        <div class="auth-combo" id="auth-combo" data-open="false">
+          <button id="btn-auth-toggle" class="btn-accion btn-auth-toggle" aria-haspopup="true" aria-expanded="false">Acceder</button>
+          <div class="auth-menu" id="auth-menu" role="menu" aria-hidden="true">
+            <button id="btn-login-google" class="auth-menu-item" role="menuitem">Google</button>
+            <button id="btn-login-ms" class="auth-menu-item" role="menuitem">Microsoft</button>
+          </div>
+        </div>
         <button id="btn-logout" class="btn-accion" style="display:none;">Cerrar sesión</button>
       </div>
     </header>
@@ -59,6 +64,18 @@
           <button id="prev-month">&lt;</button>
           <span id="month-year"></span>
           <button id="next-month">&gt;</button>
+        </div>
+        <div class="calendar-filtros" id="calendar-filtros" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; margin-bottom:14px;">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:240px;">
+            <label for="filtro-cursos" style="font-size:0.75rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar por cursos</label>
+            <select id="filtro-cursos" multiple size="4" style="min-width:240px; padding:6px 8px; font-size:0.75rem; border-radius:8px; border:1px solid #d1d5db; background:#fff;">
+              <!-- opciones dinámicas -->
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <button id="filtro-cursos-clear" class="btn-accion" style="margin-top:18px; padding:8px 14px; font-size:0.75rem;">Limpiar filtro</button>
+          </div>
+          <small style="font-size:0.65rem; color:#6b7280; max-width:280px; line-height:1.3;">Selecciona uno o varios cursos para mostrar sólo sus actividades. Si no seleccionas nada se muestran todas.</small>
         </div>
         <div class="calendar-grid" id="calendar-grid">
           <div class="day-header">Lun</div>
@@ -142,7 +159,7 @@
         </div>
         <div class="form-row">
           <label>Curso / Grupo
-            <select id="actividad-curso" required></select>
+            <select id="actividad-curso" required multiple size="6" aria-label="Selecciona uno o varios cursos"></select>
           </label>
         </div>
         <div class="form-row">

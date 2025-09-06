@@ -36,8 +36,34 @@ const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
 const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
+const btnAuthToggle = document.getElementById('btn-auth-toggle');
+const authMenu = document.getElementById('auth-menu');
+if (btnAuthToggle && authMenu) {
+	btnAuthToggle.addEventListener('click', (e) => {
+		e.preventDefault();
+		const open = authMenu.classList.toggle('open');
+		btnAuthToggle.setAttribute('aria-expanded', open ? 'true':'false');
+		authMenu.setAttribute('aria-hidden', open ? 'false':'true');
+	});
+	// Cerrar al hacer clic fuera
+	document.addEventListener('click', (e) => {
+		if (!authMenu.classList.contains('open')) return;
+		if (btnAuthToggle.contains(e.target) || authMenu.contains(e.target)) return;
+		authMenu.classList.remove('open');
+		btnAuthToggle.setAttribute('aria-expanded','false');
+		authMenu.setAttribute('aria-hidden','true');
+	});
+	// Cerrar tras elegir proveedor
+	[btnLoginGoogle, btnLoginMs].forEach(b => b && b.addEventListener('click', () => {
+		authMenu.classList.remove('open');
+		btnAuthToggle.setAttribute('aria-expanded','false');
+		authMenu.setAttribute('aria-hidden','true');
+	}));
+}
 const menuToggle = document.getElementById('menu-toggle');
 const navBar = document.getElementById('nav-secciones');
+const filtroCursosSelect = document.getElementById('filtro-cursos');
+const filtroCursosClear = document.getElementById('filtro-cursos-clear');
 if (menuToggle && navBar) {
 	menuToggle.addEventListener('click', () => {
 		const open = navBar.classList.toggle('open');
@@ -103,6 +129,11 @@ function mostrarDetalleActividad(act){
 	add('Duración (min)', act.duration != null ? act.duration : '');
 	add('Tipo', act.tipo === 'salida' ? 'Salida del centro' : 'Dentro del centro');
 	add('Curso/Grupo', act.curso || '');
+	// Si es array mostrar coma separada
+	if (Array.isArray(act.curso)) {
+		const lastP = detalleBody.lastElementChild;
+		if (lastP) lastP.innerHTML = `<span class="label">Curso/Grupo:</span> ${act.curso.join(', ')}`;
+	}
 	add('Personal', act.personal && act.personal.length ? act.personal.join(', ') : '');
 	const canManage = canWrite && (isAdmin || (act.createdBy ? act.createdBy === userId : true));
 	if (btnDetalleEditar) btnDetalleEditar.style.display = canManage ? 'inline-block' : 'none';
@@ -194,6 +225,10 @@ function poblarCursos() {
 	for (let edad = 3; edad <= 5; edad++) { ['A','B'].forEach(gr => niveles.push(`Infantil ${edad} ${gr}`)); }
 	for (let curso = 1; curso <= 6; curso++) { ['A','B'].forEach(gr => niveles.push(`${curso}º Primaria ${gr}`)); }
 	niveles.forEach(n => { const opt = document.createElement('option'); opt.value = n; opt.textContent = n; cursosSelect.appendChild(opt); });
+		// También poblar filtro (sin duplicar)
+		if (filtroCursosSelect && filtroCursosSelect.options.length === 0) {
+			niveles.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; filtroCursosSelect.appendChild(o); });
+		}
 }
 
 function abrirModalActividad(fechaISO, actividad=null) {
@@ -206,7 +241,19 @@ function abrirModalActividad(fechaISO, actividad=null) {
 	if (inputActHora) inputActHora.value = actividad && actividad.time ? actividad.time : '';
 	if (inputActDuracion) inputActDuracion.value = actividad && actividad.duration ? actividad.duration : '';
 	if (inputActTipo) inputActTipo.value = actividad && actividad.tipo ? actividad.tipo : 'dentro';
-	if (inputActCurso) inputActCurso.value = actividad && actividad.curso ? actividad.curso : (cursosSelect && cursosSelect.options[0] ? cursosSelect.options[0].value : '');
+	if (inputActCurso) {
+		// Limpiar selección previa
+		[...inputActCurso.options].forEach(o => o.selected = false);
+		const valores = actividad && actividad.curso ? (Array.isArray(actividad.curso) ? actividad.curso : [actividad.curso]) : [];
+		if (valores.length === 0 && inputActCurso.options[0]) {
+			inputActCurso.options[0].selected = true;
+		} else {
+			valores.forEach(v => {
+				const opt = [...inputActCurso.options].find(o => o.value === v);
+				if (opt) opt.selected = true;
+			});
+		}
+	}
 	if (inputActPersonal) inputActPersonal.value = actividad && actividad.personal ? (Array.isArray(actividad.personal)? actividad.personal.join(', ') : actividad.personal) : '';
 	const titleEl = document.getElementById('modal-act-title');
 	if (titleEl) titleEl.textContent = actividad ? 'Editar Actividad' : 'Nueva Actividad';
@@ -225,7 +272,7 @@ if (formActividad) {
 		const time = inputActHora.value || null;
 		const duration = inputActDuracion.value ? parseInt(inputActDuracion.value,10) : null;
 		const tipo = inputActTipo.value;
-		const curso = inputActCurso.value;
+		const curso = inputActCurso ? [...inputActCurso.selectedOptions].map(o => o.value) : [];
 		const personal = inputActPersonal.value.trim() ? inputActPersonal.value.split(/\s*,\s*/).filter(Boolean) : [];
 		if (!title || !date) return;
 		const baseData = { title, date, time, duration, tipo, curso, personal, timestamp: Date.now(), createdBy: userId || null };
@@ -561,6 +608,11 @@ function renderizarCalendario() {
 
 function renderizarActividades() {
 	const dayCells = document.querySelectorAll('.day-cell');
+	// Obtener filtros activos
+	let cursosFiltro = [];
+	if (filtroCursosSelect) {
+		cursosFiltro = [...filtroCursosSelect.selectedOptions].map(o=>o.value);
+	}
 	dayCells.forEach(cell => {
 		const activities = cell.activities || [];
 		// Eliminar actividades antiguas del DOM
@@ -568,12 +620,37 @@ function renderizarActividades() {
 		oldActivities.forEach(act => act.remove());
 
 		activities.forEach(act => {
+			// Filtrado por cursos (si actividad tiene array curso)
+			if (cursosFiltro.length) {
+				const actCursos = Array.isArray(act.curso) ? act.curso : (act.curso ? [act.curso] : []);
+				if (!actCursos.some(c => cursosFiltro.includes(c))) return; // no coincide
+			}
 			const activityItem = document.createElement('div');
-			activityItem.className = 'activity-item';
+			const tipoClass = (act.tipo === 'salida') ? 'tipo-salida' : 'tipo-dentro';
+			activityItem.className = `activity-item ${tipoClass}`;
 			activityItem.dataset.id = act.id;
 			const titleSpan = document.createElement('span');
 			titleSpan.textContent = (act.title || '');
 			activityItem.appendChild(titleSpan);
+			// Tags de cursos (máx 2 visibles + +n)
+			const actCursos = Array.isArray(act.curso) ? act.curso : (act.curso ? [act.curso] : []);
+			if (actCursos.length) {
+				const tagsWrap = document.createElement('div');
+				tagsWrap.className = 'curso-tags';
+				actCursos.slice(0,2).forEach(c => {
+					const span = document.createElement('span');
+					span.className = 'curso-tag';
+					span.textContent = abreviarCurso(c);
+					tagsWrap.appendChild(span);
+				});
+				if (actCursos.length > 2) {
+					const extra = document.createElement('span');
+					extra.className = 'curso-tag out';
+					extra.textContent = '+' + (actCursos.length - 2);
+					tagsWrap.appendChild(extra);
+				}
+				activityItem.appendChild(tagsWrap);
+			}
 			const canManage = canWrite && (isAdmin || (act && act.createdBy && act.createdBy === userId));
 			if (canManage) {
 				const del = document.createElement('button');
@@ -1055,6 +1132,31 @@ calendarGrid.addEventListener('dblclick', (e) => {
 	// Simular clic para reutilizar lógica existente
 	activityEl.click();
 });
+
+// --- Helpers y filtros de cursos ---
+function abreviarCurso(nombre) {
+	if (!nombre) return '';
+	const parts = nombre.split(/\s+/);
+	if (parts[0] === 'Infantil') {
+		const edad = parts[1] || '';
+		const grupo = parts[2] || '';
+		return `I${edad}${grupo}`;
+	}
+	const grado = parts[0] ? parts[0].replace('º','') : '';
+	const grupo = parts[2] || parts[1] || '';
+	return `${grado}P${grupo}`;
+}
+if (filtroCursosSelect) {
+	filtroCursosSelect.addEventListener('change', () => {
+		renderizarActividades();
+	});
+}
+if (filtroCursosClear) {
+	filtroCursosClear.addEventListener('click', () => {
+		[...(filtroCursosSelect?.options||[])].forEach(o => o.selected = false);
+		renderizarActividades();
+	});
+}
 
 prevMonthBtn.addEventListener('click', () => {
 	currentDate.setMonth(currentDate.getMonth() - 1);
