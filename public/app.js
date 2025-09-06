@@ -86,7 +86,22 @@ setLogLevel('error');
 // Estado
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 let firebaseConfig={}; try{ const raw=typeof __firebase_config!=='undefined'?__firebase_config:null; firebaseConfig=typeof raw==='string'?JSON.parse(raw||'{}'):(raw||{});}catch{ firebaseConfig={}; }
-const AUTH_MODE='popup';
+// Autodetección de modo auth: si el entorno tiene políticas COOP/COEP que puedan bloquear window.close en popups,
+// hacemos fallback a 'redirect'. (El warning Cross-Origin-Opener-Policy indica posible bloqueo de close()).
+const AUTH_MODE = (()=>{
+  try {
+    if (window.crossOriginIsolated) return 'redirect';
+    // Prueba rápida de popup cerrable
+    const w = window.open('', '', 'width=100,height=100');
+    if (w) {
+      try { w.close(); }catch{}
+      // Algunos navegadores marcan w.closed inmediatamente; si no se cierra asumimos restricción
+      if (!w.closed) return 'redirect';
+    }
+  } catch { return 'redirect'; }
+  return 'popup';
+})();
+console.debug('[Auth] Modo seleccionado:', AUTH_MODE);
 const LS_REDIRECT_MARK='pendingRedirectProvider';
 let auth, db, userId=null, isAdmin=false, canWrite=false, didManualLogout=false;
 let lastRedirectResultChecked=false; let lastLoginAttempt=null;
@@ -275,6 +290,11 @@ async function onSubmitEditarTarea(e){ e.preventDefault(); if(!requireAuth()) re
 
 function renderizarTareas(cont, tareas, tipo){
   if(!cont) return; cont.innerHTML='';
+  // Si no hay usuario autenticado aún, no mostrar ninguna lista (requisito solicitado)
+  if(!auth || !auth.currentUser){
+    cont.innerHTML='<p class="loading-message">Inicia sesión para ver las tareas</p>';
+    return;
+  }
   if(!tareas.length){ cont.innerHTML=`<p class="loading-message">Sin tareas ${tipo}</p>`; return; }
   // Orden: pendientes primero; dentro de pendientes por fechaLimite asc (sin fecha al final), luego por timestamp desc.
   tareas.sort((a,b)=>{
@@ -586,15 +606,24 @@ if(calendarPrintBtn){
 
 // Firestore listeners
 function setupFirestoreListeners(){
- onSnapshot(getPublicCollection('documentos'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarDocumentos(arr); });
- onSnapshot(getPublicCollection('anuncios'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); });
- onSnapshot(getPublicCollection('actividades'),qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); });
- onSnapshot(getPublicCollection('agenda'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); });
- // Sustituciones
- onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); });
- // Encuestas
- if(typeof setupEncuestasRealtime==='function') setupEncuestasRealtime();
- setupTareas(); iniciarListenersTareas();
+  const wrap=(label,cb)=>withTry=>onSnapshot(
+    getPublicCollection(label),
+    qs=>{ try{ cb(qs); }catch(e){ console.error('[Render error]',label,e); } },
+    err=>{ console.error('[Snapshot error]',label,err); if(err?.code==='permission-denied') notifyWarn(`Permiso denegado en ${label}`); }
+  );
+  // Documentos
+  onSnapshot(getPublicCollection('documentos'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarDocumentos(arr); }, err=>{ console.error('[Snapshot error] documentos',err); });
+  // Anuncios
+  onSnapshot(getPublicCollection('anuncios'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); }, err=>{ console.error('[Snapshot error] anuncios',err); });
+  // Actividades
+  onSnapshot(getPublicCollection('actividades'), qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); }, err=>{ console.error('[Snapshot error] actividades',err); });
+  // Agenda
+  onSnapshot(getPublicCollection('agenda'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); }, err=>{ console.error('[Snapshot error] agenda',err); });
+  // Sustituciones
+  onSnapshot(getPublicCollection('sustituciones'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); }, err=>{ console.error('[Snapshot error] sustituciones',err); });
+  // Encuestas
+  if(typeof setupEncuestasRealtime==='function') setupEncuestasRealtime();
+  setupTareas(); iniciarListenersTareas();
 }
 
 // ================= ENCUESTAS =================
@@ -681,7 +710,9 @@ function setupEncuestas(){
   const lista=document.getElementById('lista-encuestas');
   lista?.addEventListener('click',async e=>{
     const btn=e.target.closest('.opcion-voto'); if(!btn) return;
+    // Nueva restricción: sólo usuarios registrados permitidos (canWrite ya implica allowlist/admin)
     if(!requireAuth()){ return; }
+    if(!canWrite){ notifyWarn('Sólo usuarios del claustro pueden votar'); return; }
     const encuestaId=btn.dataset.id; const index=parseInt(btn.dataset.index,10);
     const enc=encuestasCache.find(x=>x.id===encuestaId); if(!enc) return;
     const prev=obtenerVoto(enc);

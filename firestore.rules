@@ -100,10 +100,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAllowedUser() && hasValidBaseFields(request.resource.data) && validEncuestasCreate(request.resource.data);
       // Update puede ser: a) edición por creador/admin, b) voto (incrementos)
+      // Sólo usuarios registrados permitidos (no anónimos) para votar ahora.
       allow update: if (
           isAllowedUser() && (isAdmin() || isOwner(resource.data)) && validEncuestasEdit(resource.data, request.resource.data)
         ) || (
-          isAuthenticated() && validEncuestasVote(resource.data, request.resource.data)
+          isAllowedUser() && validEncuestasVote(resource.data, request.resource.data)
         );
       allow delete: if isAllowedUser() && (isAdmin() || isOwner(resource.data));
 
@@ -225,11 +226,11 @@ service cloud.firestore {
     // Subcolección de votos de encuestas: un documento por usuario
     match /artifacts/{appId}/public/data/encuestas/{encuestaId}/votos/{voteId} {
       // Permitir obtener sólo el propio voto (no listar)
-      allow get: if isAuthenticated() && voteId == request.auth.uid;
-      allow create: if isAuthenticated() && voteId == request.auth.uid &&
+      allow get: if isAllowedUser() && voteId == request.auth.uid;
+      allow create: if isAllowedUser() && voteId == request.auth.uid &&
         request.resource.data.uid == request.auth.uid && request.resource.data.ts is int;
-      // Permitir actualizar el propio voto (cambiar índice). Requiere mismos campos base.
-      allow update: if isAuthenticated() && voteId == request.auth.uid &&
+      // Permitir actualizar el propio voto (cambiar índice). Requiere mismos campos base (sólo usuarios permitidos)
+      allow update: if isAllowedUser() && voteId == request.auth.uid &&
         request.resource.data.uid == request.auth.uid && request.resource.data.ts is int;
       allow delete: if false;
     }
