@@ -1,15 +1,8 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Carpeta de documentos institucionales
-    match /documentos/{allPaths=**} {
-      // TEMP: Lectura para cualquier usuario autenticado (debug CORS)
-      allow read: if request.auth != null;
-
-      // TEMP: Escritura para cualquier usuario autenticado (debug CORS)
-      allow write: if request.auth != null;
-
-      /* ORIGINAL (restaurar después):
+  // Carpeta de documentos institucionales
+  match /documentos/{allPaths=**} {
       allow read: if request.auth != null && (request.auth.token.admin == true || request.auth.token.email in [
           "alejandra.fernandez@murciaeduca.es",
           "anaadela.cordoba@murciaeduca.es",
@@ -86,7 +79,6 @@ service firebase.storage {
           "teresa.fernandez2@murciaeduca.es",
           "diegoalberto.moya@murciaeduca.es"
         ]);
-      */
     }
   }
 }
