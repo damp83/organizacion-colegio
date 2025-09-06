@@ -38,26 +38,49 @@ const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
 const btnAuthToggle = document.getElementById('btn-auth-toggle');
 const authMenu = document.getElementById('auth-menu');
+const authCombo = document.getElementById('auth-combo');
+
+function openAuthMenu(){
+	if(!btnAuthToggle || !authMenu) return;
+	authMenu.classList.add('open');
+	btnAuthToggle.setAttribute('aria-expanded','true');
+	authMenu.setAttribute('aria-hidden','false');
+	// focus primer elemento disponible
+	setTimeout(()=>{ const first = authMenu.querySelector('.auth-menu-item'); first && first.focus(); },0);
+}
+function closeAuthMenu(){
+	if(!btnAuthToggle || !authMenu) return;
+	// mover foco al toggle antes de esconder para evitar aria-hidden warning
+	btnAuthToggle.focus({preventScroll:true});
+	authMenu.classList.remove('open');
+	btnAuthToggle.setAttribute('aria-expanded','false');
+	authMenu.setAttribute('aria-hidden','true');
+}
 if (btnAuthToggle && authMenu) {
 	btnAuthToggle.addEventListener('click', (e) => {
 		e.preventDefault();
-		const open = authMenu.classList.toggle('open');
-		btnAuthToggle.setAttribute('aria-expanded', open ? 'true':'false');
-		authMenu.setAttribute('aria-hidden', open ? 'false':'true');
+		if (authMenu.classList.contains('open')) closeAuthMenu(); else openAuthMenu();
+	});
+	btnAuthToggle.addEventListener('keydown', (e) => {
+		if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if(!authMenu.classList.contains('open')) openAuthMenu(); }
 	});
 	// Cerrar al hacer clic fuera
 	document.addEventListener('click', (e) => {
 		if (!authMenu.classList.contains('open')) return;
 		if (btnAuthToggle.contains(e.target) || authMenu.contains(e.target)) return;
-		authMenu.classList.remove('open');
-		btnAuthToggle.setAttribute('aria-expanded','false');
-		authMenu.setAttribute('aria-hidden','true');
+		closeAuthMenu();
+	});
+	// Teclas dentro del menú
+	authMenu.addEventListener('keydown', (e) => {
+		const items = Array.from(authMenu.querySelectorAll('.auth-menu-item'));
+		const idx = items.indexOf(document.activeElement);
+		if (e.key === 'Escape') { e.preventDefault(); closeAuthMenu(); return; }
+		if (e.key === 'ArrowDown') { e.preventDefault(); const next = items[(idx+1) % items.length]; next && next.focus(); }
+		if (e.key === 'ArrowUp') { e.preventDefault(); const prev = items[(idx-1+items.length)%items.length]; prev && prev.focus(); }
 	});
 	// Cerrar tras elegir proveedor
 	[btnLoginGoogle, btnLoginMs].forEach(b => b && b.addEventListener('click', () => {
-		authMenu.classList.remove('open');
-		btnAuthToggle.setAttribute('aria-expanded','false');
-		authMenu.setAttribute('aria-hidden','true');
+		closeAuthMenu();
 	}));
 }
 const menuToggle = document.getElementById('menu-toggle');
@@ -932,8 +955,9 @@ async function initializeAppClient() {
 			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'inline-block';
 			// Si es anónimo, mantener visibles los botones de login para poder "actualizar" la sesión
-			if (btnLoginGoogle) btnLoginGoogle.style.display = (user.isAnonymous ? 'inline-block' : 'none');
-			if (btnLoginMs) btnLoginMs.style.display = (user.isAnonymous ? 'inline-block' : 'none');
+			if (authCombo) authCombo.style.display = user.isAnonymous ? 'flex' : 'none';
+			if (btnLoginGoogle) btnLoginGoogle.style.display = (user.isAnonymous ? 'block' : 'none');
+			if (btnLoginMs) btnLoginMs.style.display = (user.isAnonymous ? 'block' : 'none');
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1
@@ -990,8 +1014,9 @@ async function initializeAppClient() {
 				formAgenda.querySelector('button[type="submit"]').disabled = true;
 			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'none';
-			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
-			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+			if (authCombo) authCombo.style.display = 'flex';
+			if (btnLoginGoogle) btnLoginGoogle.style.display = 'block';
+			if (btnLoginMs) btnLoginMs.style.display = 'block';
 			// Si hubo error al redirigir en login, no fuerces anónimo y muestra un aviso
 			if (lastRedirectError) {
 				const code = (lastRedirectError.code || '').toString();
