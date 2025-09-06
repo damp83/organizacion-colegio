@@ -36,53 +36,6 @@ const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
 const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
-const btnAuthToggle = document.getElementById('btn-auth-toggle');
-const authMenu = document.getElementById('auth-menu');
-const authCombo = document.getElementById('auth-combo');
-
-function openAuthMenu(){
-	if(!btnAuthToggle || !authMenu) return;
-	authMenu.classList.add('open');
-	btnAuthToggle.setAttribute('aria-expanded','true');
-	authMenu.setAttribute('aria-hidden','false');
-	// focus primer elemento disponible
-	setTimeout(()=>{ const first = authMenu.querySelector('.auth-menu-item'); first && first.focus(); },0);
-}
-function closeAuthMenu(){
-	if(!btnAuthToggle || !authMenu) return;
-	// mover foco al toggle antes de esconder para evitar aria-hidden warning
-	btnAuthToggle.focus({preventScroll:true});
-	authMenu.classList.remove('open');
-	btnAuthToggle.setAttribute('aria-expanded','false');
-	authMenu.setAttribute('aria-hidden','true');
-}
-if (btnAuthToggle && authMenu) {
-	btnAuthToggle.addEventListener('click', (e) => {
-		e.preventDefault();
-		if (authMenu.classList.contains('open')) closeAuthMenu(); else openAuthMenu();
-	});
-	btnAuthToggle.addEventListener('keydown', (e) => {
-		if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if(!authMenu.classList.contains('open')) openAuthMenu(); }
-	});
-	// Cerrar al hacer clic fuera
-	document.addEventListener('click', (e) => {
-		if (!authMenu.classList.contains('open')) return;
-		if (btnAuthToggle.contains(e.target) || authMenu.contains(e.target)) return;
-		closeAuthMenu();
-	});
-	// Teclas dentro del menú
-	authMenu.addEventListener('keydown', (e) => {
-		const items = Array.from(authMenu.querySelectorAll('.auth-menu-item'));
-		const idx = items.indexOf(document.activeElement);
-		if (e.key === 'Escape') { e.preventDefault(); closeAuthMenu(); return; }
-		if (e.key === 'ArrowDown') { e.preventDefault(); const next = items[(idx+1) % items.length]; next && next.focus(); }
-		if (e.key === 'ArrowUp') { e.preventDefault(); const prev = items[(idx-1+items.length)%items.length]; prev && prev.focus(); }
-	});
-	// Cerrar tras elegir proveedor
-	[btnLoginGoogle, btnLoginMs].forEach(b => b && b.addEventListener('click', () => {
-		closeAuthMenu();
-	}));
-}
 const menuToggle = document.getElementById('menu-toggle');
 const navBar = document.getElementById('nav-secciones');
 const filtroCursosSelect = document.getElementById('filtro-cursos');
@@ -955,9 +908,8 @@ async function initializeAppClient() {
 			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'inline-block';
 			// Si es anónimo, mantener visibles los botones de login para poder "actualizar" la sesión
-			if (authCombo) authCombo.style.display = user.isAnonymous ? 'flex' : 'none';
-			if (btnLoginGoogle) btnLoginGoogle.style.display = (user.isAnonymous ? 'block' : 'none');
-			if (btnLoginMs) btnLoginMs.style.display = (user.isAnonymous ? 'block' : 'none');
+			if (btnLoginGoogle) btnLoginGoogle.style.display = (user.isAnonymous ? 'inline-block' : 'none');
+			if (btnLoginMs) btnLoginMs.style.display = (user.isAnonymous ? 'inline-block' : 'none');
 			setupFirestoreListeners();
 			renderizarCalendario();
 			// Seed opcional si se pasó ?seed=1
@@ -1014,9 +966,8 @@ async function initializeAppClient() {
 				formAgenda.querySelector('button[type="submit"]').disabled = true;
 			} catch (_) {}
 			if (btnLogout) btnLogout.style.display = 'none';
-			if (authCombo) authCombo.style.display = 'flex';
-			if (btnLoginGoogle) btnLoginGoogle.style.display = 'block';
-			if (btnLoginMs) btnLoginMs.style.display = 'block';
+			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
 			// Si hubo error al redirigir en login, no fuerces anónimo y muestra un aviso
 			if (lastRedirectError) {
 				const code = (lastRedirectError.code || '').toString();
@@ -1063,33 +1014,24 @@ if (btnLoginGoogle) {
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			try {
-				console.log('[auth][google] Abriendo popup...');
-				const res = await signInWithPopup(auth, provider);
-				console.log('[auth][google] Popup resuelto usuario=', res?.user?.uid, res?.user?.email);
+				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				console.warn('[auth][google] popup error:', code);
 				if (code.includes('popup-closed-by-user')) {
-					console.info('[auth] Popup Google cerrado por el usuario antes de completar. Intentando redirect automático.');
-					// Evitar bucle: no relanzar si ya venimos de redirect
-					if (!localStorage.getItem(LS_REDIRECT_MARK)) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'google');
-						try { await signInWithRedirect(auth, provider); } catch(_){}
-					}
+					// Usuario canceló manualmente: no forzar redirect, permitir reintentar.
+					try { alert('Inicio con Google cancelado. Pulsa de nuevo para intentarlo.'); } catch(_){}
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'google');
 					await signInWithRedirect(auth, provider);
-				} else {
-					throw e;
+					return;
 				}
+				throw e; // otros errores: dejar flujo estándar
 			}
 		} catch (e) {
-			if ((e && e.code && String(e.code).includes('popup-closed-by-user'))) {
-				// Silenciar error ya gestionado arriba
-				return;
-			}
-			console.error('Error al iniciar con Google', e?.code || e);
+			console.error('Error al iniciar con Google', e);
 		}
 	});
 }
@@ -1102,29 +1044,23 @@ if (btnLoginMs) {
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			try {
-				console.log('[auth][microsoft] Abriendo popup...');
-				const res = await signInWithPopup(auth, provider);
-				console.log('[auth][microsoft] Popup resuelto usuario=', res?.user?.uid, res?.user?.email);
+				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				console.warn('[auth][microsoft] popup error:', code);
 				if (code.includes('popup-closed-by-user')) {
-					console.info('[auth] Popup Microsoft cerrado por el usuario. Intentando redirect automático.');
-					if (!localStorage.getItem(LS_REDIRECT_MARK)) {
-						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-						try { await signInWithRedirect(auth, provider); } catch(_){}
-					}
+					try { alert('Inicio con Microsoft cancelado. Pulsa de nuevo para intentarlo.'); } catch(_){}
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 					await signInWithRedirect(auth, provider);
-				} else {
-					throw e;
+					return;
 				}
+				throw e;
 			}
 		} catch (e) {
-			if ((e && e.code && String(e.code).includes('popup-closed-by-user'))) return;
-			console.error('Error al iniciar con Microsoft', e?.code || e);
+			console.error('Error al iniciar con Microsoft', e);
 		}
 	});
 }
