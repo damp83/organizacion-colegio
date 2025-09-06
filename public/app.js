@@ -849,6 +849,12 @@ function showConfirmationModal(message, callback) {
 
 // --- Inicialización de la aplicación ---
 async function initializeAppClient() {
+	// Detectar ejecución directa file:// (OAuth no funciona en file://)
+	if (location.protocol === 'file:') {
+		try { alert('La autenticación OAuth no funciona abriendo el archivo directamente (file://). Debes servir la app desde localhost (firebase hosting:firebase serve) o dominio HTTPS.'); } catch(_){ }
+		console.error('[auth] Entorno file:// detectado. Aborta inicialización de Firebase Auth.');
+		return;
+	}
 	if (!firebaseConfig.apiKey) {
 		console.error("Firebase no está configurado correctamente.");
 		userDisplay.textContent = "Error: Firebase no configurado";
@@ -955,6 +961,19 @@ async function initializeAppClient() {
 				}
 			}
 		} else {
+			// Evitar registrar inmediatamente un usuario anónimo si hay un flujo de redirect en curso
+			const stillPending = localStorage.getItem(LS_REDIRECT_MARK);
+			const recentLogin = lastLoginAttempt && (Date.now() - lastLoginAttempt.ts < 12000);
+			if (stillPending || recentLogin) {
+				console.log('[auth] Esperando antes de crear sesión anónima (redirect/login reciente pendiente)...');
+				setTimeout(async () => {
+					if (!auth.currentUser) {
+						console.log('[auth] No llegó usuario tras espera. Procediendo a sesión anónima.');
+						try { await signInAnonymously(auth); } catch(e){ console.warn('[auth] Falló signInAnonymously (delay):', e); }
+					}
+				}, 1800);
+				return;
+			}
 			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
 			if (didManualLogout) {
 				userId = null;
@@ -996,7 +1015,7 @@ async function initializeAppClient() {
 					await signInAnonymously(auth);
 				}
 			} else {
-				await signInAnonymously(auth);
+				try { await signInAnonymously(auth); } catch(e){ console.warn('[auth] Falló signInAnonymously:', e); }
 			}
 		}
 	});
