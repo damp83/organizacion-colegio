@@ -171,7 +171,7 @@ h2 {
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	gap: 6px;
 }
 
 .documento-card:hover {

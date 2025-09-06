@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 
 // Reducir verbosidad de Firestore en consola
 setLogLevel('error');
@@ -65,7 +66,7 @@ let confirmationCallback = null;
         
 // Variables de estado
 let currentDate = new Date();
-let auth, db, userId, isAdmin = false;
+let auth, db, storage, userId, isAdmin = false;
 // Permisos de escritura calculados en cliente (coincidir con reglas): admin o email verificado en allowlist
 let canWrite = false;
 let lastRedirectError = null;
@@ -237,16 +238,25 @@ function renderizarDocumentos(documentos) {
 		p2.appendChild(strong2);
 		p2.append(' ' + (d.fecha || ''));
 		const elements = [h3, p1, p2];
-		// Botón de descarga visible para usuarios autorizados (canWrite) aunque no sean propietarios
-		if (canWrite) {
+		// Botón de descarga si el documento tiene path de storage
+		if (canWrite && d.storagePath && d.fileName) {
 			const downloadBtn = document.createElement('button');
 			downloadBtn.className = 'btn-accion descargar';
 			downloadBtn.type = 'button';
 			downloadBtn.textContent = 'Descargar';
-			// Acción de descarga: por ahora sólo simula (no hay almacenamiento real aún)
-			downloadBtn.addEventListener('click', () => {
-				// Placeholder: en el futuro se integraría con Storage o enlace real
-				alert('Descargando: ' + (d.archivo || 'archivo desconocido'));
+			downloadBtn.addEventListener('click', async () => {
+				try {
+					const refFile = storageRef(storage, d.storagePath);
+					const url = await getDownloadURL(refFile);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = d.fileName || d.nombre || 'documento';
+					document.body.appendChild(a);
+					a.click();
+					a.remove();
+				} catch (err) {
+					alert('No se pudo descargar: ' + (err?.code || err?.message));
+				}
 			});
 			elements.push(downloadBtn);
 		}
@@ -516,6 +526,7 @@ async function initializeAppClient() {
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
 	db = getFirestore(app);
+	storage = getStorage(app);
 
 	// Completar flujos de login por redirección (si los hay)
 	try {
@@ -542,9 +553,8 @@ async function initializeAppClient() {
 		try {
 			connectAuthEmulator(auth, 'http://localhost:9099');
 		} catch (_) {}
-		try {
-			connectFirestoreEmulator(db, 'localhost', 8080);
-		} catch (_) {}
+		try { connectFirestoreEmulator(db, 'localhost', 8080); } catch (_) {}
+		try { connectStorageEmulator(storage, 'localhost', 9199); } catch (_) {}
 	}
 
 	onAuthStateChanged(auth, async (user) => {
@@ -781,23 +791,28 @@ window.addEventListener('click', (event) => {
 formDocumento.addEventListener('submit', async (e) => {
 	e.preventDefault();
 	if (!requireAuthForWrites() || !canWrite) { try { alert('No tienes permisos para subir documentos.'); } catch(_){} return; }
-	const titulo = document.getElementById('documento-titulo').value;
+	const titulo = document.getElementById('documento-titulo').value.trim();
 	const archivo = document.getElementById('documento-archivo').files[0];
-    
-	if (titulo && archivo) {
-		const newDocument = {
+	if (!titulo || !archivo) { alert('Completa título y archivo.'); return; }
+	const safeName = archivo.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+	const path = `documentos/${Date.now()}_${safeName}`;
+	try {
+		const refFile = storageRef(storage, path);
+		await uploadBytes(refFile, archivo, { contentType: archivo.type || 'application/octet-stream' });
+		await addDoc(getPublicCollection('documentos'), {
 			nombre: titulo,
-			archivo: archivo.name,
+			fileName: archivo.name,
+			storagePath: path,
 			fecha: new Date().toLocaleDateString('es-ES'),
 			timestamp: Date.now(),
 			createdBy: userId || null
-		};
-        
-		await addDoc(getPublicCollection('documentos'), newDocument);
+		});
+		modalDocumento.style.display = 'none';
+		modalDocumento.setAttribute('aria-hidden', 'true');
+		formDocumento.reset();
+	} catch (err) {
+		alert('Error subiendo: ' + (err?.code || err?.message));
 	}
-	modalDocumento.style.display = 'none';
-	modalDocumento.setAttribute('aria-hidden', 'true');
-	formDocumento.reset();
 });
 
 documentosGrid.addEventListener('click', (e) => {
