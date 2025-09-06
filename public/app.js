@@ -602,8 +602,7 @@ function renderizarActividades() {
 				if (!actCursos.some(c => cursosFiltro.includes(c))) return; // no coincide
 			}
 			const activityItem = document.createElement('div');
-			const tipoClass = (act.tipo === 'salida') ? 'tipo-salida' : 'tipo-dentro';
-			activityItem.className = `activity-item ${tipoClass}`;
+			activityItem.className = 'activity-item';
 			activityItem.dataset.id = act.id;
 			const titleSpan = document.createElement('span');
 			titleSpan.textContent = (act.title || '');
@@ -916,8 +915,8 @@ async function initializeAppClient() {
 			seedDemoDataIfRequested();
 			// Resetear bandera de logout manual una vez haya sesión
 			didManualLogout = false;
-			// Fallback: solo si el último intento fue por redirect (no forzar doble popup tras cancelar)
-			if (user.isAnonymous && lastLoginAttempt && lastLoginAttempt.via === 'redirect' && !triedPopupFallback) {
+			// Fallback: si intentamos login con redirect y seguimos anónimos, probar popup una vez
+			if (user.isAnonymous && lastLoginAttempt && !triedPopupFallback) {
 				const elapsed = Date.now() - lastLoginAttempt.ts;
 				if (elapsed < 15000) {
 					if (lastLoginAttempt.provider === 'google') {
@@ -955,7 +954,6 @@ async function initializeAppClient() {
 				if (btnLogout) btnLogout.style.display = 'none';
 				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
 				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
-				// No forzamos sesión anónima aquí para evitar estados confusos: usuario decide proveedor.
 				return;
 			}
 
@@ -1010,28 +1008,20 @@ if (btnLogout) {
 if (btnLoginGoogle) {
 	btnLoginGoogle.addEventListener('click', async () => {
 		try {
-			console.log('[auth][google] Click login Google');
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'google', ts: Date.now(), via: 'popup' };
+			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			try {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
-				console.warn('[auth][google] popup error:', code);
-				if (code.includes('popup-closed-by-user')) {
-					// Usuario canceló manualmente: no forzar redirect, permitir reintentar.
-					try { alert('Inicio con Google cancelado. Pulsa de nuevo para intentarlo.'); } catch(_){}
-					return;
-				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					lastLoginAttempt.via = 'redirect';
 					localStorage.setItem(LS_REDIRECT_MARK, 'google');
 					await signInWithRedirect(auth, provider);
-					return;
+				} else {
+					throw e;
 				}
-				throw e; // otros errores: dejar flujo estándar
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Google', e);
@@ -1042,27 +1032,20 @@ if (btnLoginGoogle) {
 if (btnLoginMs) {
 	btnLoginMs.addEventListener('click', async () => {
 		try {
-			console.log('[auth][microsoft] Click login Microsoft');
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'microsoft', ts: Date.now(), via: 'popup' };
+			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			try {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
-				console.warn('[auth][microsoft] popup error:', code);
-				if (code.includes('popup-closed-by-user')) {
-					try { alert('Inicio con Microsoft cancelado. Pulsa de nuevo para intentarlo.'); } catch(_){}
-					return;
-				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					lastLoginAttempt.via = 'redirect';
 					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 					await signInWithRedirect(auth, provider);
-					return;
+				} else {
+					throw e;
 				}
-				throw e;
 			}
 		} catch (e) {
 			console.error('Error al iniciar con Microsoft', e);
