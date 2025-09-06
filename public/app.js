@@ -1063,7 +1063,9 @@ if (btnLoginGoogle) {
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			try {
-				await signInWithPopup(auth, provider);
+				console.log('[auth][google] Abriendo popup...');
+				const res = await signInWithPopup(auth, provider);
+				console.log('[auth][google] Popup resuelto usuario=', res?.user?.uid, res?.user?.email);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
 				if (code.includes('popup-closed-by-user')) {
@@ -1100,7 +1102,9 @@ if (btnLoginMs) {
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			try {
-				await signInWithPopup(auth, provider);
+				console.log('[auth][microsoft] Abriendo popup...');
+				const res = await signInWithPopup(auth, provider);
+				console.log('[auth][microsoft] Popup resuelto usuario=', res?.user?.uid, res?.user?.email);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
 				if (code.includes('popup-closed-by-user')) {

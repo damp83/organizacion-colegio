@@ -124,10 +124,10 @@ header h1 {
 .auth-menu-item:hover { background:#475569; }
 
 @media (max-width:600px){
-	.auth-actions { gap:4px; }
-	.btn-auth-toggle { padding:6px 10px; font-size:0.7rem; }
-	.auth-menu { right:auto; left:0; min-width:120px; }
-	.auth-menu-item { font-size:0.7rem; padding:6px 8px; }
+	.auth-actions { gap:6px; }
+	.btn-auth-toggle { padding:8px 12px; font-size:0.75rem; }
+	.auth-menu { right:0; left:auto; min-width:140px; }
+	.auth-menu-item { font-size:0.75rem; padding:8px 10px; }
 }
 
 /* Brand/Logo */
