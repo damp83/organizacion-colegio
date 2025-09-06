@@ -851,28 +851,32 @@ calendarGrid.addEventListener('click', (e) => {
 		if (clickedActivity.querySelector('form')) return; // ya en edición
 		const currentTitle = actData.title || '';
 		const currentTime = actData.time || '';
+		const currentDate = actData.date || '';
 		clickedActivity.innerHTML = '';
 		const form = document.createElement('form');
 		form.style.display = 'flex';
 		form.style.gap = '4px';
 		form.style.width = '100%';
 		form.innerHTML = `
+			<input type="date" value="${currentDate}" style="width:125px; font-size:0.65rem; padding:2px 4px;" required />
 			<input type="text" value="${currentTitle.replace(/"/g,'&quot;')}" style="flex:1; min-width:0; font-size:0.75rem; padding:2px 4px;" required />
 			<input type="time" value="${currentTime}" style="width:70px; font-size:0.65rem; padding:2px 4px;" />
 			<button type="submit" class="btn-accion editar" style="margin:0; padding:4px 8px; font-size:0.7rem;">Guardar</button>
 			<button type="button" class="btn-accion eliminar" style="margin:0; padding:4px 8px; font-size:0.7rem;">X</button>
 		`;
 		clickedActivity.appendChild(form);
-		const input = form.querySelector('input[type="text"]');
+		const inputDate = form.querySelector('input[type="date"]');
+		const inputTitle = form.querySelector('input[type="text"]');
 		const inputHora = form.querySelector('input[type="time"]');
-		input.focus();
+		inputTitle.focus();
 		form.addEventListener('submit', async (ev) => {
 			ev.preventDefault();
-			const nuevoTitulo = input.value.trim();
+			const nuevaFecha = inputDate.value;
+			const nuevoTitulo = inputTitle.value.trim();
 			const nuevaHora = inputHora && inputHora.value ? inputHora.value : null;
-			if (!nuevoTitulo) return;
+			if (!nuevoTitulo || !nuevaFecha) return;
 			try {
-				await updateDoc(doc(getPublicCollection('actividades'), actId), { title: nuevoTitulo, time: nuevaHora, timestamp: Date.now() });
+				await updateDoc(doc(getPublicCollection('actividades'), actId), { title: nuevoTitulo, time: nuevaHora, date: nuevaFecha, timestamp: Date.now() });
 			} catch(err) {
 				console.warn('Error actualizando actividad', err);
 				alert('No se pudo actualizar.');
