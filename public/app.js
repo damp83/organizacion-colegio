@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
+// Eliminado Firebase Storage: se usará Firestore con base64 para archivos pequeños
 
 // Reducir verbosidad de Firestore en consola
 setLogLevel('error');
@@ -66,7 +66,7 @@ let confirmationCallback = null;
         
 // Variables de estado
 let currentDate = new Date();
-let auth, db, storage, userId, isAdmin = false;
+let auth, db, userId, isAdmin = false; // storage eliminado
 // Permisos de escritura calculados en cliente (coincidir con reglas): admin o email verificado en allowlist
 let canWrite = false;
 let lastRedirectError = null;
@@ -225,44 +225,42 @@ function renderizarDocumentos(documentos) {
 	documentos.forEach(d => {
 		const card = document.createElement('div');
 		card.className = 'documento-card';
-		const h3 = document.createElement('h3');
-		h3.textContent = d.nombre || '';
+		const h3 = document.createElement('h3'); h3.textContent = d.nombre || '';
 		const p1 = document.createElement('p');
-		const strong1 = document.createElement('strong');
-		strong1.textContent = 'Archivo:';
-		p1.appendChild(strong1);
-		p1.append(' ' + (d.fileName || d.archivo || ''));
+		const strong1 = document.createElement('strong'); strong1.textContent = 'Archivo:';
+		p1.append(strong1, ' ' + (d.archivo || d.fileName || ''));
 		const p2 = document.createElement('p');
-		const strong2 = document.createElement('strong');
-		strong2.textContent = 'Fecha de subida:';
-		p2.appendChild(strong2);
-		p2.append(' ' + (d.fecha || ''));
-		const elements = [h3, p1, p2];
-		// Botón de descarga si el documento tiene path de storage
-		if (canWrite && d.storagePath && (d.fileName || d.archivo)) {
-			const downloadBtn = document.createElement('button');
-			downloadBtn.className = 'btn-accion descargar';
-			downloadBtn.type = 'button';
-			downloadBtn.textContent = 'Descargar';
-			downloadBtn.addEventListener('click', async () => {
+		const strong2 = document.createElement('strong'); strong2.textContent = 'Fecha de subida:';
+		p2.append(strong2, ' ' + (d.fecha || ''));
+		const details = [h3, p1, p2];
+		// Descarga inline si hay base64
+		if (d.archivoBase64) {
+			const btnDesc = document.createElement('button');
+			btnDesc.className = 'btn-accion descargar';
+			btnDesc.type = 'button';
+			btnDesc.textContent = 'Descargar';
+			btnDesc.addEventListener('click', () => {
 				try {
-					console.log('[docs] Intentando descargar', d.storagePath, d.fileName);
-					const refFile = storageRef(storage, d.storagePath);
-					const url = await getDownloadURL(refFile);
-					console.log('[docs] URL obtenida', url);
+					const bytes = atob(d.archivoBase64);
+					const arr = new Uint8Array(bytes.length);
+					for (let i=0;i<bytes.length;i++) arr[i] = bytes.charCodeAt(i);
+					const blob = new Blob([arr], { type: d.mimeType || 'application/octet-stream' });
+					const url = URL.createObjectURL(blob);
 					const a = document.createElement('a');
 					a.href = url;
-					a.download = d.fileName || d.archivo || d.nombre || 'documento';
-					a.rel = 'noopener';
-					a.target = '_blank'; // fallback si el navegador ignora download
+					a.download = d.archivo || d.fileName || 'documento';
 					document.body.appendChild(a);
 					a.click();
-					setTimeout(() => a.remove(), 0);
-				} catch (err) {
-					alert('No se pudo descargar: ' + (err?.code || err?.message));
-				}
+					setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+				} catch(err) { alert('No se pudo descargar el archivo.'); }
 			});
-			elements.push(downloadBtn);
+			details.push(btnDesc);
+		} else if (d.storagePath) {
+			// Documento legado subido cuando existía Storage: indicar no disponible
+			const span = document.createElement('span');
+			span.className = 'no-file';
+			span.textContent = '(Contenido externo no disponible)';
+			details.push(span);
 		}
 		const canManage = canWrite && (isAdmin || (d && d.createdBy && d.createdBy === userId));
 		if (canManage) {
@@ -270,9 +268,9 @@ function renderizarDocumentos(documentos) {
 			delBtn.className = 'btn-accion eliminar';
 			delBtn.dataset.id = d.id;
 			delBtn.textContent = 'Eliminar';
-			elements.push(delBtn);
+			details.push(delBtn);
 		}
-		card.append(...elements);
+		card.append(...details);
 		documentosGrid.appendChild(card);
 	});
 }
@@ -530,7 +528,7 @@ async function initializeAppClient() {
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
 	db = getFirestore(app);
-	storage = getStorage(app);
+	// storage eliminado
 
 	// Completar flujos de login por redirección (si los hay)
 	try {
@@ -558,7 +556,7 @@ async function initializeAppClient() {
 			connectAuthEmulator(auth, 'http://localhost:9099');
 		} catch (_) {}
 		try { connectFirestoreEmulator(db, 'localhost', 8080); } catch (_) {}
-		try { connectStorageEmulator(storage, 'localhost', 9199); } catch (_) {}
+		// Sin Storage
 	}
 
 	onAuthStateChanged(auth, async (user) => {
@@ -798,19 +796,20 @@ formDocumento.addEventListener('submit', async (e) => {
 	const titulo = document.getElementById('documento-titulo').value.trim();
 	const archivo = document.getElementById('documento-archivo').files[0];
 	if (!titulo || !archivo) { alert('Completa título y archivo.'); return; }
-	const safeName = archivo.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-	const path = `documentos/${Date.now()}_${safeName}`;
+	// Límite ~700KB para mantener margen bajo 1MB Firestore
+	const MAX_BYTES = 700 * 1024;
+	if (archivo.size > MAX_BYTES) { alert(`Archivo demasiado grande: ${Math.round(archivo.size/1024)} KB (máx ${Math.round(MAX_BYTES/1024)} KB)`); return; }
 	try {
-		// Forzar refresh del token para asegurar que incluye email (evita falsos 403 que parecen CORS)
 		if (auth.currentUser) { try { await auth.currentUser.getIdToken(true); } catch(_) {} }
-		console.log('[upload] Subiendo', { path, name: archivo.name, type: archivo.type, size: archivo.size });
-		const refFile = storageRef(storage, path);
-		await uploadBytes(refFile, archivo, { contentType: archivo.type || 'application/octet-stream' });
+		console.log('[upload-inline] Preparando base64', { name: archivo.name, type: archivo.type, size: archivo.size });
+		const dataUrl = await fileToBase64(archivo);
+		const base64Data = dataUrl.split(',')[1];
 		await addDoc(getPublicCollection('documentos'), {
 			nombre: titulo,
-			archivo: archivo.name, // Campo legacy para reglas y compatibilidad
-			fileName: archivo.name,
-			storagePath: path,
+			archivo: archivo.name,
+			mimeType: archivo.type || 'application/octet-stream',
+			size: archivo.size,
+			archivoBase64: base64Data,
 			fecha: new Date().toLocaleDateString('es-ES'),
 			timestamp: Date.now(),
 			createdBy: userId || null
@@ -819,8 +818,8 @@ formDocumento.addEventListener('submit', async (e) => {
 		modalDocumento.setAttribute('aria-hidden', 'true');
 		formDocumento.reset();
 	} catch (err) {
-		console.warn('[upload] Error', err);
-		alert('Error subiendo: ' + (err?.code || err?.message || err));
+		console.warn('[upload-inline] Error', err);
+		alert('Error subiendo: ' + (err?.message || err));
 	}
 });
 
@@ -980,4 +979,14 @@ function requireAuthForWrites() {
 		return false;
 	}
 	return true;
+}
+
+// Utilidad convertir archivo a base64
+function fileToBase64(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = reject;
+		reader.readAsDataURL(file);
+	});
 }
