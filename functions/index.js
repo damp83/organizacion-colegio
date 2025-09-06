@@ -12,6 +12,7 @@ const {beforeUserSignedIn} = require("firebase-functions/v2/identity");
 const {onRequest} = require("firebase-functions/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
+const functions = require("firebase-functions");
 
 // For cost control, you can set the maximum number of containers that can be
 // running at the same time. This helps mitigate the impact of unexpected
@@ -39,6 +40,101 @@ try {
 } catch (e) {
 	// No-op if already initialized
 }
+
+const db = admin.firestore();
+
+// Helper to safely add notification
+async function addNotification(appId, payload){
+	try {
+		const colPath = `artifacts/${appId}/public/data/notificaciones`;
+		const data = Object.assign({}, payload, { timestamp: Date.now() });
+		await db.collection(colPath).add(data);
+	} catch(err){
+		logger.error('addNotification error', err, {payload});
+	}
+}
+
+// Firestore triggers (v1 API for simplicity here) for new documents
+exports.onNewAnuncio = functions.firestore.document('artifacts/{appId}/public/data/anuncios/{docId}').onCreate(async (snap, ctx)=>{
+	const d = snap.data()||{}; await addNotification(ctx.params.appId, { tipo:'anuncio', refId: ctx.params.docId, titulo: (d.texto||'').slice(0,120), cuerpo: null, createdBy: d.createdBy||null });
+});
+
+exports.onNewAgenda = functions.firestore.document('artifacts/{appId}/public/data/agenda/{docId}').onCreate( async (snap, ctx)=>{
+	const d=snap.data()||{}; const t = d.title||'Nueva reunión'; await addNotification(ctx.params.appId, { tipo:'agenda', refId: ctx.params.docId, titulo: t, cuerpo: d.description? String(d.description).slice(0,200): null, createdBy:d.createdBy||null });
+});
+
+exports.onNewActividad = functions.firestore.document('artifacts/{appId}/public/data/actividades/{docId}').onCreate( async (snap, ctx)=>{
+	const d=snap.data()||{}; const t=d.title||'Actividad'; await addNotification(ctx.params.appId, { tipo:'actividad', refId: ctx.params.docId, titulo: t, cuerpo: (d.date?('Fecha '+d.date):null), createdBy:d.createdBy||null });
+});
+
+exports.onNewTareaCompartida = functions.firestore.document('artifacts/{appId}/public/data/tareas_compartidas/{docId}').onCreate( async (snap, ctx)=>{
+	const d=snap.data()||{}; const t=d.titulo||'Tarea compartida'; await addNotification(ctx.params.appId, { tipo:'tarea_compartida', refId: ctx.params.docId, titulo: t, cuerpo: (d.descripcion? String(d.descripcion).slice(0,140): null), createdBy:d.createdBy||null });
+});
+
+exports.onNewSustitucion = functions.firestore.document('artifacts/{appId}/public/data/sustituciones/{docId}').onCreate( async (snap, ctx)=>{
+	const d=snap.data()||{};
+	// Título compacto: curso y asignatura
+	const t = (d.curso?d.curso+' - ':'') + (d.asignatura||'Sustitución');
+	const cuerpo = (d.sustituto? ('Sustituye: '+d.sustituto)+(d.hora? (' • '+d.hora):'') : (d.hora||null));
+	await addNotification(ctx.params.appId, { tipo:'sustitucion', refId: ctx.params.docId, titulo: t.slice(0,120), cuerpo: cuerpo? String(cuerpo).slice(0,160): null, createdBy:d.createdBy||null });
+});
+
+// ================== UPDATE NOTIFICATIONS ==================
+// Notificar cambios relevantes sin generar ruido por cada pequeño ajuste.
+// Estrategia: comparar campos clave y si alguno cambió crear notificación 'update_*'.
+
+async function maybeAddUpdateNotification(appId, tipoBase, docId, beforeData, afterData, fields, build){
+	try {
+		let changed=false; const diffs=[];
+		fields.forEach(f=>{ const a=beforeData[f]; const b=afterData[f]; if(JSON.stringify(a)!==JSON.stringify(b)){ changed=true; diffs.push(f); } });
+		if(!changed) return;
+		const payload = build(diffs, beforeData, afterData);
+		if(!payload || !payload.titulo) return;
+		// Debounce: evitar más de una notificación del mismo tipo para el mismo doc en 60s
+		const colPath = `artifacts/${appId}/public/data/notificaciones`;
+		const now = Date.now();
+		try {
+			const snap = await db.collection(colPath)
+				.where('tipo','==',tipoBase)
+				.where('refId','==',docId)
+				.orderBy('timestamp','desc')
+				.limit(1)
+				.get();
+			if(!snap.empty){
+				const last = snap.docs[0].data();
+				if(last.timestamp && (now - last.timestamp) < 60000){
+					return; // suprimir notificación por debounce
+				}
+			}
+		} catch(err){ logger.warn('Debounce check failed', err); }
+		await addNotification(appId, Object.assign({ tipo: tipoBase, refId: docId }, payload));
+	} catch(err){ logger.error('maybeAddUpdateNotification error', err); }
+}
+
+exports.onUpdateAgenda = functions.firestore.document('artifacts/{appId}/public/data/agenda/{docId}').onUpdate(async (change, ctx)=>{
+	const before=change.before.data()||{}; const after=change.after.data()||{};
+	await maybeAddUpdateNotification(ctx.params.appId, 'update_agenda', ctx.params.docId, before, after, ['date','status','description','title'], (diffs,b,a)=>{
+		const partes=[]; if(diffs.includes('date')) partes.push('Fecha'); if(diffs.includes('status')) partes.push('Estado'); if(diffs.includes('title')) partes.push('Título');
+		return { titulo:`Actualización agenda: ${(a.title||'').slice(0,60)}`, cuerpo: partes.length? ('Cambios: '+partes.join(', ')): null, createdBy:a.createdBy||null };
+	});
+});
+
+exports.onUpdateActividad = functions.firestore.document('artifacts/{appId}/public/data/actividades/{docId}').onUpdate(async (change, ctx)=>{
+	const before=change.before.data()||{}; const after=change.after.data()||{};
+	await maybeAddUpdateNotification(ctx.params.appId, 'update_actividad', ctx.params.docId, before, after, ['date','time','duration','title','curso'], (diffs,b,a)=>{
+		const partes=[]; if(diffs.includes('date')) partes.push('Fecha'); if(diffs.includes('time')) partes.push('Hora'); if(diffs.includes('curso')) partes.push('Cursos'); if(diffs.includes('title')) partes.push('Título');
+		return { titulo:`Actualización actividad: ${(a.title||'').slice(0,60)}`, cuerpo: partes.length? ('Cambios: '+partes.join(', ')): null, createdBy:a.createdBy||null };
+	});
+});
+
+exports.onUpdateSustitucion = functions.firestore.document('artifacts/{appId}/public/data/sustituciones/{docId}').onUpdate(async (change, ctx)=>{
+	const before=change.before.data()||{}; const after=change.after.data()||{};
+	await maybeAddUpdateNotification(ctx.params.appId, 'update_sustitucion', ctx.params.docId, before, after, ['hora','sustituto','curso','asignatura','instrucciones'], (diffs,b,a)=>{
+		const partes=[]; if(diffs.includes('hora')) partes.push('Hora'); if(diffs.includes('sustituto')) partes.push('Sustituto'); if(diffs.includes('curso')) partes.push('Curso'); if(diffs.includes('asignatura')) partes.push('Asignatura'); if(diffs.includes('instrucciones')) partes.push('Instrucciones');
+		const t = (a.curso? a.curso+' - ':'') + (a.asignatura||'Sustitución');
+		return { titulo:`Cambio sustitución: ${t.slice(0,80)}`, cuerpo: partes.length? ('Modificado: '+partes.join(', ')): null, createdBy:a.createdBy||null };
+	});
+});
 
 // --- Auth blocking: permitir solo emails en allowlist y marcar sesión como allowed ---
 function getAllowList() {

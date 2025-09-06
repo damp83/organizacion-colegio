@@ -1,3 +1,78 @@
+// ================== Notificaciones (in-app + push stub) ==================
+// Estructura colección Firestore propuesta:
+// artifacts/{appId}/public/data/notificaciones/{id}
+// Campos: tipo ('anuncio','agenda','tarea_compartida','actividad'), refId, titulo, cuerpo, timestamp, createdBy
+// Lectura pública (como anuncios) pero filtraremos cliente-side.
+// Estados de lectura por usuario en localStorage (para simplicidad; alternativa: subcolección per-user o aggregated map)
+const notifBtn = document.getElementById('btn-notificaciones');
+const notifBadge = document.getElementById('badge-notificaciones');
+const notifPanel = document.getElementById('panel-notificaciones');
+const notifList = document.getElementById('lista-notificaciones');
+const notifMarkAllBtn = document.getElementById('marcar-notif-leidas');
+const notifCloseBtn = document.getElementById('cerrar-panel-notif');
+let notificacionesCache = [];
+let unreadCount = 0;
+let unsubscribeNotificaciones = null;
+const MAX_NOTIFS = 30;
+
+function loadNotifReadSet(){ try{ const raw = localStorage.getItem('notif_read_'+appId); if(!raw) return new Set(); const arr=JSON.parse(raw); if(Array.isArray(arr)) return new Set(arr); return new Set(); }catch{ return new Set(); } }
+function saveNotifReadSet(set){ try{ localStorage.setItem('notif_read_'+appId, JSON.stringify([...set].slice(-300))); }catch{} }
+let notifReadSet = loadNotifReadSet();
+let notifReadFetchedRemote=false;
+async function syncNotifReadFromRemote(){
+  if(!db||!auth||!auth.currentUser||notifReadFetchedRemote) return;
+  try{
+    const uid=auth.currentUser.uid;
+    const qRef = collection(db, `artifacts/${appId}/users/${uid}/notificaciones_leidas`);
+    const snap = await getDocs(qRef);
+    snap.forEach(d=>{ notifReadSet.add(d.id); });
+    notifReadFetchedRemote=true; saveNotifReadSet(notifReadSet); actualizarBadgeNotificaciones(); renderNotificaciones();
+  }catch{}
+}
+async function persistNotifReadRemote(id){
+  if(!db||!auth||!auth.currentUser) return;
+  try{
+    const uid=auth.currentUser.uid;
+    await setDoc(doc(db, `artifacts/${appId}/users/${uid}/notificaciones_leidas/${id}`), { read:true, ts:Date.now() }, { merge:true });
+  }catch{}
+}
+
+ function renderNotificaciones(){ if(!notifList) return; notifList.innerHTML=''; if(!notificacionesCache.length){ const p=document.createElement('p'); p.className='notif-empty'; p.textContent='Sin notificaciones recientes'; notifList.appendChild(p); } const hoyStr=(new Date()).toLocaleDateString('sv-SE'); notificacionesCache.slice(0,MAX_NOTIFS).forEach(n=>{ const item=document.createElement('div'); const isUnread = !notifReadSet.has(n.id); item.className='notif-item'+(isUnread?' unread':''); const title=document.createElement('p'); title.className='notif-title'; const pill=document.createElement('span'); pill.className='notif-pill'; const baseMap={anuncio:'Anuncio',agenda:'Agenda',tarea_compartida:'Tarea',actividad:'Actividad',sustitucion:'Sustitución',update_agenda:'Agenda ↑',update_actividad:'Actividad ↑',update_sustitucion:'Sustitución ↑'}; pill.textContent=(baseMap[n.tipo]||n.tipo||'Info');
+  if(n.tipo?.startsWith('update_')){ pill.classList.add('update'); if(n.tipo==='update_sustitucion') pill.classList.add('update-sust'); }
+  // Heurística urgencia: actualización de sustitución misma jornada y cuerpo incluye 'Hora'
+  if(n.tipo==='update_sustitucion' && /Hora/i.test(n.cuerpo||'')){
+    // Consideramos mismo día si timestamp es hoy (comparación de fecha local ISO yyyy-mm-dd)
+    const fechaNoti=new Date(n.timestamp||Date.now()); const fStr=fechaNoti.toLocaleDateString('sv-SE'); if(fStr===hoyStr) pill.classList.add('urgent');
+  }
+  title.appendChild(pill); const spanT=document.createElement('span'); spanT.textContent=' '+(n.titulo||''); title.appendChild(spanT); const body=document.createElement('div'); body.className='notif-body'; body.textContent=n.cuerpo||''; const meta=document.createElement('div'); meta.className='notif-meta'; const fecha=new Date(n.timestamp||Date.now()); meta.innerHTML=`<span>${fecha.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})} ${fecha.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</span>`; const actions=document.createElement('div'); actions.className='notif-actions'; const btnLeer=document.createElement('button'); btnLeer.type='button'; btnLeer.textContent=isUnread? 'Marcar leída':'Abrir'; btnLeer.addEventListener('click',()=>{ if(isUnread){ notifReadSet.add(n.id); saveNotifReadSet(notifReadSet); persistNotifReadRemote(n.id); actualizarBadgeNotificaciones(); item.classList.remove('unread'); btnLeer.textContent='Abrir'; } // Navegación contextual
+  if(n.tipo==='anuncio'){ cambiarSeccion('anuncios'); }
+  else if(n.tipo==='agenda' || n.tipo==='update_agenda'){ cambiarSeccion('agenda'); }
+  else if(n.tipo==='tarea_compartida'){ cambiarSeccion('tareas'); }
+  else if(n.tipo==='actividad' || n.tipo==='update_actividad'){ cambiarSeccion('calendario'); }
+  else if(n.tipo==='sustitucion' || n.tipo==='update_sustitucion'){ cambiarSeccion('sustituciones'); }
+      }); actions.appendChild(btnLeer); item.append(title,body,meta,actions); notifList.appendChild(item); }); }
+
+function actualizarBadgeNotificaciones(){ if(!notifBadge) return; unreadCount = notificacionesCache.reduce((acc,n)=> acc + (notifReadSet.has(n.id)?0:1), 0); if(unreadCount>0){ notifBadge.style.display='inline-block'; notifBadge.textContent = unreadCount>99? '99+': String(unreadCount); notifBtn?.classList.add('has-unread'); } else { notifBadge.style.display='none'; notifBtn?.classList.remove('has-unread'); } }
+
+function togglePanelNotificaciones(force){ if(!notifPanel) return; const visible = force!=null? force : (notifPanel.style.display!=='flex'); notifPanel.style.display= visible? 'flex':'none'; if(visible){ notifPanel.style.flexDirection='column'; } }
+
+function iniciarNotificacionesListener(){ if(unsubscribeNotificaciones){ try{unsubscribeNotificaciones();}catch{} unsubscribeNotificaciones=null; } try { const col=getPublicCollection('notificaciones'); unsubscribeNotificaciones=onSnapshot(col,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); // ordenar por timestamp desc
+  arr.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)); notificacionesCache=arr.slice(0,MAX_NOTIFS); renderNotificaciones(); actualizarBadgeNotificaciones(); }); }catch(err){ console.warn('No se pudo iniciar listener de notificaciones', err); } }
+
+function maybeInitNotifications(){ if(!notifBtn) return; // Mostrar campana sólo si hay usuario autenticado (aunque sea anónimo) para tracking de leídas
+  if(auth?.currentUser){ notifBtn.style.display='inline-flex'; iniciarNotificacionesListener(); } else { notifBtn.style.display='none'; if(unsubscribeNotificaciones){ try{unsubscribeNotificaciones();}catch{} unsubscribeNotificaciones=null; } }
+}
+
+notifBtn?.addEventListener('click',()=>{ const willOpen = notifPanel?.style.display==='none' || notifPanel?.style.display==='' ; togglePanelNotificaciones(willOpen); if(willOpen){ // marcar vista (no forzamos leídas automáticamente)
+  renderNotificaciones(); }
+});
+notifCloseBtn?.addEventListener('click',()=>togglePanelNotificaciones(false));
+notifMarkAllBtn?.addEventListener('click',()=>{ let changed=false; const toPersist=[]; notificacionesCache.forEach(n=>{ if(!notifReadSet.has(n.id)){ notifReadSet.add(n.id); toPersist.push(n.id); changed=true; } }); if(changed){ saveNotifReadSet(notifReadSet); actualizarBadgeNotificaciones(); renderNotificaciones(); toPersist.forEach(id=>persistNotifReadRemote(id)); } });
+
+// Solicitud de permiso para Push (placeholder: se integrará con FCM más adelante)
+async function requestPushPermissionIfNeeded(){ if(!('Notification' in window)) return; try{ if(Notification.permission==='default'){ const r=await Notification.requestPermission(); if(r!=='granted') return; } }catch{} }
+
+// Llamar tras login
 // (Fragmento duplicado eliminado: cabecera incompleta + listeners agenda)
 // LIMPIO: app.js reconstruido (versión completa restaurada)
 // Funciones: Auth (Google/Microsoft + anónimo), allowlist, CRUD (documentos base64, anuncios, actividades calendario drag&drop, agenda)
@@ -418,7 +493,16 @@ function renderizarSustituciones(items){
   if(tbody) tbody.innerHTML='';
   if(contLegacy) contLegacy.innerHTML='';
   const filtrados=items.filter(filtroSust);
-  if(!filtrados.length){ if(tbody){ for(let s=1;s<=5;s++){ const tr=document.createElement('tr'); tr.innerHTML=`<td style="border:1px solid #e5e7eb; padding:6px; font-weight:600; text-align:center; background:#f9fafb;">${s}</td>`; ['Lunes','Martes','Miércoles','Jueves','Viernes'].forEach(()=>{ const td=document.createElement('td'); td.style.cssText='border:1px solid #e5e7eb; padding:6px; min-width:140px;'; tr.appendChild(td); }); tbody.appendChild(tr);} } if(contLegacy) contLegacy.innerHTML='<p class="loading-message">No hay sustituciones registradas.</p>'; return; }
+  const sessionRange=(s)=>{
+    switch(String(s)){
+      case '1': return '09:00-10:00 / 09:00-10:30';
+      case '2': return '10:00-11:30 / 10:30-11:30';
+      case '4': return '12:00-13:00';
+      case '5': return '13:00-14:00';
+      default: return '';
+    }
+  };
+  if(!filtrados.length){ if(tbody){ for(let s=1;s<=5;s++){ const tr=document.createElement('tr'); tr.innerHTML=`<td style="border:1px solid #e5e7eb; padding:6px; font-weight:600; text-align:center; background:#f9fafb;">${s}</td><td style="border:1px solid #e5e7eb; padding:6px; font-size:.55rem; background:#f9fafb; color:#374151;">${sessionRange(s)}</td>`; ['Lunes','Martes','Miércoles','Jueves','Viernes'].forEach(()=>{ const td=document.createElement('td'); td.style.cssText='border:1px solid #e5e7eb; padding:6px; min-width:140px;'; tr.appendChild(td); }); tbody.appendChild(tr);} } if(contLegacy) contLegacy.innerHTML='<p class="loading-message">No hay sustituciones registradas.</p>'; return; }
   // Agrupar por día+sesión (dia, sesion)
   const slotMap=new Map();
   const legacy=[];
@@ -433,7 +517,7 @@ function renderizarSustituciones(items){
   if(tbody){
     for(let s=1;s<=5;s++){
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td style="border:1px solid #e5e7eb; padding:6px; font-weight:600; text-align:center; background:#f9fafb;">${s}</td>`;
+      tr.innerHTML=`<td style="border:1px solid #e5e7eb; padding:6px; font-weight:600; text-align:center; background:#f9fafb;">${s}</td><td style="border:1px solid #e5e7eb; padding:6px; font-size:.55rem; background:#f9fafb; color:#374151;">${sessionRange(s)}</td>`;
       ['Lunes','Martes','Miércoles','Jueves','Viernes'].forEach(d=>{
         const td=document.createElement('td');
         td.style.cssText='border:1px solid #e5e7eb; padding:6px; vertical-align:top; min-width:140px; position:relative;';
@@ -898,7 +982,7 @@ window.addEventListener('click',e=>{ if(e.target===modalConfirmacion){ modalConf
 
 // Auth init
 async function initAuth(){ if(location.protocol==='file:'){ notifyWarn('Abra la aplicación mediante HTTP/HTTPS'); return; } if(!firebaseConfig.apiKey){ userDisplay.textContent='Config Firebase faltante'; return; } const app=initializeApp(firebaseConfig); auth=getAuth(app); try{ await setPersistence(auth,browserLocalPersistence); }catch{} db=getFirestore(app); try{ const rr=await getRedirectResult(auth); if(rr) localStorage.removeItem(LS_REDIRECT_MARK); lastRedirectResultChecked=true; }catch{} const useEmu=(location.hostname==='localhost'||location.hostname==='127.0.0.1'); if(useEmu){ try{connectAuthEmulator(auth,'http://localhost:9099');}catch{} try{connectFirestoreEmulator(db,'localhost',8080);}catch{} }
-onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } iniciarListenersTareas(); didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); iniciarListenersTareas(); });
+onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } iniciarListenersTareas(); maybeInitNotifications(); requestPushPermissionIfNeeded(); syncNotifReadFromRemote(); didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); iniciarListenersTareas(); maybeInitNotifications(); });
 }
 
 // Login/Logout
@@ -944,6 +1028,74 @@ document.addEventListener('keydown',e=>{
   const slots=generarSlots('08:30','17:00',30);
   slots.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selIni.appendChild(o.cloneNode(true)); });
   slots.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selFin.appendChild(o.cloneNode(true)); });
+})();
+
+// ================== SESIONES -> INTERVALOS PREDEFINIDOS ==================
+// Reglas solicitadas:
+//  - Sesión 5: 13:00 - 14:00 (fija)
+//  - Sesión 4: 12:00 - 13:00 (fija)
+//  - Sesión 1: puede ser 09:00-10:00 ó 09:00-10:30
+//  - Sesión 2: puede ser 10:00-11:30 ó 10:30-11:30
+//  - Sesión 3: sin especificación -> se deja libre (todas las horas disponibles)
+// Implementación: al elegir sesión se restringen (o fijan) las horas de inicio/fin.
+(function configurarIntervalosPorSesion(){
+  const sesSel=document.getElementById('sustitucion-sesion');
+  const selIni=document.getElementById('sustitucion-hora-inicio');
+  const selFin=document.getElementById('sustitucion-hora-fin');
+  if(!sesSel||!selIni||!selFin) return;
+
+  // Guardamos copia original completa (sin el placeholder índice 0)
+  const originalInicios=[...selIni.options].slice(1).map(o=>o.value);
+  const originalFines=[...selFin.options].slice(1).map(o=>o.value);
+
+  const SESSION_INTERVALS={
+    '1': [ ['09:00','10:00'], ['09:00','10:30'] ],
+    '2': [ ['10:00','11:30'], ['10:30','11:30'] ],
+    '4': [ ['12:00','13:00'] ],
+    '5': [ ['13:00','14:00'] ]
+  };
+
+  function setOptions(select, values){
+    const placeholder=select.options[0];
+    select.innerHTML='';
+    select.appendChild(placeholder);
+    values.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; select.appendChild(o); });
+  }
+
+  function restoreOriginal(){
+    setOptions(selIni, originalInicios);
+    setOptions(selFin, originalFines);
+    selIni.disabled=false;
+    selFin.disabled=false;
+  }
+
+  function aplicar(){
+    const ses=sesSel.value;
+    if(!SESSION_INTERVALS[ses]){ restoreOriginal(); return; }
+    const pares=SESSION_INTERVALS[ses];
+    const inicios=[...new Set(pares.map(p=>p[0]))];
+    setOptions(selIni, inicios);
+    selIni.value=inicios[0]||'';
+    selIni.disabled = inicios.length===1; // fija
+    actualizarFines();
+  }
+
+  function actualizarFines(){
+    const ses=sesSel.value;
+    const pares=SESSION_INTERVALS[ses];
+    if(!pares){ return; }
+    const start=selIni.value;
+    const fines=pares.filter(p=>p[0]===start).map(p=>p[1]);
+    setOptions(selFin, fines);
+    selFin.value=fines[0]||'';
+    selFin.disabled = fines.length===1; // fija
+  }
+
+  sesSel.addEventListener('change', aplicar);
+  selIni.addEventListener('change', actualizarFines);
+
+  // Si ya viene seleccionada (al editar) aplicamos tras un tick
+  setTimeout(()=>{ if(sesSel.value) aplicar(); },0);
 })();
 
 // Helpers

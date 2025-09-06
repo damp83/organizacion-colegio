@@ -599,3 +599,98 @@ document.addEventListener('keydown', (e) => {
 
 // Inicializar
 initializeAppClient();
+
+// ===================== Notificaciones (UI básica panel) =====================
+// NOTA: La lógica de escucha en tiempo real y marcado leídas puede estar en otro archivo;
+// aquí sólo aseguramos que el panel se pueda abrir/cerrar correctamente también en móvil.
+
+const btnNotificaciones = document.getElementById('btn-notificaciones');
+const panelNotificaciones = document.getElementById('panel-notificaciones');
+const overlayNotificaciones = document.getElementById('overlay-notificaciones');
+const btnCerrarPanelNotif = document.getElementById('cerrar-panel-notif');
+
+function abrirPanelNotificaciones() {
+    if (!panelNotificaciones) return;
+    panelNotificaciones.style.display = 'flex';
+    const isMobile = window.matchMedia('(max-width:640px)').matches;
+    if (isMobile) {
+        panelNotificaciones.setAttribute('data-mobile-open', '1');
+        if (overlayNotificaciones) overlayNotificaciones.style.display = 'block';
+        // Evitar scroll de fondo
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function cerrarPanelNotificaciones() {
+    if (!panelNotificaciones) return;
+    panelNotificaciones.style.display = 'none';
+    panelNotificaciones.removeAttribute('data-mobile-open');
+    if (overlayNotificaciones) overlayNotificaciones.style.display = 'none';
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+}
+
+function togglePanelNotificaciones() {
+    if (!panelNotificaciones) return;
+    if (panelNotificaciones.style.display === 'none' || panelNotificaciones.style.display === '') {
+        abrirPanelNotificaciones();
+    } else {
+        cerrarPanelNotificaciones();
+    }
+}
+
+if (btnNotificaciones) {
+    btnNotificaciones.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePanelNotificaciones();
+    });
+}
+
+if (btnCerrarPanelNotif) {
+    btnCerrarPanelNotif.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cerrarPanelNotificaciones();
+    });
+}
+
+if (overlayNotificaciones) {
+    overlayNotificaciones.addEventListener('click', () => {
+        cerrarPanelNotificaciones();
+    });
+}
+
+// Cerrar al pulsar fuera (sólo escritorio; en móvil usamos overlay que ya captura)
+document.addEventListener('click', (e) => {
+    if (!panelNotificaciones) return;
+    const isMobile = window.matchMedia('(max-width:640px)').matches;
+    if (isMobile) return; // overlay se encarga en móvil
+    if (panelNotificaciones.style.display === 'flex') {
+        const clickDentro = panelNotificaciones.contains(e.target) || (btnNotificaciones && btnNotificaciones.contains(e.target));
+        if (!clickDentro) cerrarPanelNotificaciones();
+    }
+});
+
+// Escape para cerrar
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panelNotificaciones && panelNotificaciones.style.display === 'flex') {
+        cerrarPanelNotificaciones();
+    }
+});
+
+// Ajustar si cambia orientación o tamaño (cerrar para evitar layout roto)
+window.addEventListener('orientationchange', cerrarPanelNotificaciones);
+window.addEventListener('resize', () => {
+    // Si se pasa de móvil a escritorio mantener abierto pero quitar overlay/locks
+    if (!panelNotificaciones) return;
+    if (panelNotificaciones.style.display === 'flex') {
+        const isMobile = window.matchMedia('(max-width:640px)').matches;
+        if (!isMobile) {
+            if (overlayNotificaciones) overlayNotificaciones.style.display = 'none';
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            panelNotificaciones.removeAttribute('data-mobile-open');
+        }
+    }
+});
+

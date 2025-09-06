@@ -154,7 +154,8 @@ service cloud.firestore {
           (col == 'actividades' && validActividades(newData)) ||
           (col == 'agenda' && validAgenda(newData)) ||
           (col == 'sustituciones' && validSustituciones(newData)) ||
-          (col == 'tareas_compartidas' && validTarea(newData))
+          (col == 'tareas_compartidas' && validTarea(newData)) ||
+          (col == 'notificaciones' && validNotificacion(newData))
         );
       }
 
@@ -166,7 +167,8 @@ service cloud.firestore {
                  (col == 'actividades' && validActividades(newData)) ||
                  (col == 'agenda' && validAgenda(newData)) ||
                  (col == 'sustituciones' && validSustituciones(newData)) ||
-                 (col == 'tareas_compartidas' && validTarea(newData))
+                 (col == 'tareas_compartidas' && validTarea(newData)) ||
+                 (col == 'notificaciones' && validNotificacion(newData))
                );
       }
 
@@ -211,6 +213,12 @@ service cloud.firestore {
          (d.instrucciones == null || isShortString(d.instrucciones, 4000));
       }
 
+      function validNotificacion(d) {
+        return (d.tipo in ['anuncio','agenda','tarea_compartida','actividad','sustitucion','update_agenda','update_actividad','update_sustitucion']) &&
+               isShortString(d.titulo, 300) &&
+               (d.cuerpo == null || isShortString(d.cuerpo, 1000));
+      }
+
   // (Encuestas se validan en su propio match específico)
     }
 
@@ -235,6 +243,16 @@ service cloud.firestore {
         request.resource.data.timestamp is int &&
         validTarea(request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == userId && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ESTADO DE NOTIFICACIONES LEÍDAS POR USUARIO
+    // Ruta: /artifacts/{appId}/users/{userId}/notificaciones_leidas/{notifId}
+    // Documento mínimo: { read: true, ts: int } (ts=cuando marcó leído)
+    match /artifacts/{appId}/users/{userId}/notificaciones_leidas/{notifId} {
+      allow read: if request.auth != null && request.auth.uid == userId; // sólo su propio estado
+      allow create: if request.auth != null && request.auth.uid == userId && request.resource.data.read == true && request.resource.data.ts is int;
+      allow update: if request.auth != null && request.auth.uid == userId && resource.data.read == true && request.resource.data.read == true && request.resource.data.ts is int;
+      allow delete: if false; // no borrar (retención opcional lado servidor)
     }
   }
 }
