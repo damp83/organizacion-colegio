@@ -63,6 +63,42 @@ const btnConfirmar = document.getElementById('btn-confirmar');
 const btnCancelar = document.getElementById('btn-cancelar');
 const closeConfirmBtn = document.querySelector('#modal-confirmacion .close-btn');
 let confirmationCallback = null;
+
+// Modal detalle actividad
+const modalActividadDetalle = document.getElementById('modal-actividad-detalle');
+const closeBtnActDet = document.querySelector('.close-btn-act-det');
+const btnDetalleCerrar = document.getElementById('actividad-detalle-cerrar');
+const btnDetalleEditar = document.getElementById('actividad-detalle-editar');
+const detalleBody = document.getElementById('actividad-detalle-body');
+
+function cerrarModalActividadDetalle(){ if(modalActividadDetalle) modalActividadDetalle.style.display='none'; }
+if (closeBtnActDet) closeBtnActDet.addEventListener('click', cerrarModalActividadDetalle);
+if (btnDetalleCerrar) btnDetalleCerrar.addEventListener('click', cerrarModalActividadDetalle);
+
+function mostrarDetalleActividad(act){
+	if (!detalleBody) return;
+	detalleBody.innerHTML='';
+	const rows = [];
+	const add = (label, value) => { const p=document.createElement('p'); p.innerHTML=`<span class="label">${label}:</span> ${value||''}`; detalleBody.appendChild(p); };
+	add('Nombre', act.title || '');
+	add('Fecha', act.date || '');
+	add('Hora', act.time || '');
+	add('Duración (min)', act.duration != null ? act.duration : '');
+	add('Tipo', act.tipo === 'salida' ? 'Salida del centro' : 'Dentro del centro');
+	add('Curso/Grupo', act.curso || '');
+	add('Personal', act.personal && act.personal.length ? act.personal.join(', ') : '');
+	const canManage = canWrite && (isAdmin || (act.createdBy ? act.createdBy === userId : true));
+	if (btnDetalleEditar) btnDetalleEditar.style.display = canManage ? 'inline-block' : 'none';
+	if (btnDetalleEditar) {
+		btnDetalleEditar.onclick = () => {
+			cerrarModalActividadDetalle();
+			abrirModalActividad(act.date, act);
+		};
+	}
+	if (modalActividadDetalle) modalActividadDetalle.style.display='flex';
+	const titleEl = document.getElementById('modal-act-detalle-title');
+	if (titleEl) titleEl.textContent = act.title || 'Actividad';
+}
         
 // Variables de estado
 let currentDate = new Date();
@@ -117,6 +153,77 @@ function computeCanWrite(u, adminFlag) {
 	if (adminFlag) return true;
 	const email = (u.email || '').toLowerCase();
 	return !!ALLOWLIST_EMAILS.has(email);
+}
+
+// --- Modal avanzado Actividad ---
+const modalActividad = document.getElementById('modal-actividad');
+const formActividad = document.getElementById('form-actividad');
+const btnActividadCancelar = document.getElementById('actividad-cancelar');
+const cursosSelect = document.getElementById('actividad-curso');
+const closeBtnAct = document.querySelector('.close-btn-act');
+const inputActId = document.getElementById('actividad-id');
+const inputActNombre = document.getElementById('actividad-nombre');
+const inputActFecha = document.getElementById('actividad-fecha');
+const inputActHora = document.getElementById('actividad-hora');
+const inputActDuracion = document.getElementById('actividad-duracion');
+const inputActTipo = document.getElementById('actividad-tipo');
+const inputActCurso = document.getElementById('actividad-curso');
+const inputActPersonal = document.getElementById('actividad-personal');
+
+function poblarCursos() {
+	if (!cursosSelect) return;
+	if (cursosSelect.options.length > 0) return; // ya poblado
+	const niveles = [];
+	for (let edad = 3; edad <= 5; edad++) { ['A','B'].forEach(gr => niveles.push(`Infantil ${edad} ${gr}`)); }
+	for (let curso = 1; curso <= 6; curso++) { ['A','B'].forEach(gr => niveles.push(`${curso}º Primaria ${gr}`)); }
+	niveles.forEach(n => { const opt = document.createElement('option'); opt.value = n; opt.textContent = n; cursosSelect.appendChild(opt); });
+}
+
+function abrirModalActividad(fechaISO, actividad=null) {
+	if (!canWrite) { try { alert('No tienes permisos para crear actividades'); } catch(_){} return; }
+	poblarCursos();
+	if (formActividad) formActividad.reset();
+	if (inputActId) inputActId.value = actividad ? actividad.id : '';
+	if (inputActNombre) inputActNombre.value = actividad ? (actividad.title||'') : '';
+	if (inputActFecha) inputActFecha.value = actividad ? (actividad.date||fechaISO) : fechaISO;
+	if (inputActHora) inputActHora.value = actividad && actividad.time ? actividad.time : '';
+	if (inputActDuracion) inputActDuracion.value = actividad && actividad.duration ? actividad.duration : '';
+	if (inputActTipo) inputActTipo.value = actividad && actividad.tipo ? actividad.tipo : 'dentro';
+	if (inputActCurso) inputActCurso.value = actividad && actividad.curso ? actividad.curso : (cursosSelect && cursosSelect.options[0] ? cursosSelect.options[0].value : '');
+	if (inputActPersonal) inputActPersonal.value = actividad && actividad.personal ? (Array.isArray(actividad.personal)? actividad.personal.join(', ') : actividad.personal) : '';
+	const titleEl = document.getElementById('modal-act-title');
+	if (titleEl) titleEl.textContent = actividad ? 'Editar Actividad' : 'Nueva Actividad';
+	if (modalActividad) modalActividad.style.display = 'flex';
+}
+function cerrarModalActividad(){ if (modalActividad) modalActividad.style.display = 'none'; }
+if (closeBtnAct) closeBtnAct.addEventListener('click', cerrarModalActividad);
+if (btnActividadCancelar) btnActividadCancelar.addEventListener('click', cerrarModalActividad);
+window.addEventListener('click', (e)=>{ if (e.target === modalActividad) cerrarModalActividad(); });
+if (formActividad) {
+	formActividad.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		if (!requireAuthForWrites()) return;
+		const title = inputActNombre.value.trim();
+		const date = inputActFecha.value;
+		const time = inputActHora.value || null;
+		const duration = inputActDuracion.value ? parseInt(inputActDuracion.value,10) : null;
+		const tipo = inputActTipo.value;
+		const curso = inputActCurso.value;
+		const personal = inputActPersonal.value.trim() ? inputActPersonal.value.split(/\s*,\s*/).filter(Boolean) : [];
+		if (!title || !date) return;
+		const baseData = { title, date, time, duration, tipo, curso, personal, timestamp: Date.now(), createdBy: userId || null };
+		try {
+			if (inputActId.value) {
+				await updateDoc(doc(getPublicCollection('actividades'), inputActId.value), baseData);
+			} else {
+				await addDoc(getPublicCollection('actividades'), baseData);
+			}
+			cerrarModalActividad();
+		} catch(err) {
+			console.warn('Error guardando actividad', err);
+			alert('No se pudo guardar la actividad');
+		}
+	});
 }
 let didManualLogout = false;
 // Cache de actividades para mantenerlas al cambiar de mes
@@ -265,7 +372,7 @@ function renderizarDocumentos(documentos) {
 			span.textContent = '(Contenido externo no disponible)';
 			details.push(span);
 		}
-		const canManage = canWrite && (isAdmin || (d && d.createdBy && d.createdBy === userId));
+		const canManage = canWrite && (isAdmin || (d && (d.createdBy ? d.createdBy === userId : true)));
 		if (canManage) {
 			const delBtn = document.createElement('button');
 			delBtn.className = 'btn-accion eliminar';
@@ -293,7 +400,7 @@ function renderizarAnuncios(anuncios) {
 		const text = document.createElement('span');
 		text.textContent = anuncio.texto || '';
 		const elements = [text];
-		const canManage = canWrite && (isAdmin || (anuncio && anuncio.createdBy && anuncio.createdBy === userId));
+		const canManage = canWrite && (isAdmin || (anuncio && (anuncio.createdBy ? anuncio.createdBy === userId : true)));
 		if (canManage) {
 			const btn = document.createElement('button');
 			btn.className = 'btn-accion eliminar';
@@ -359,8 +466,7 @@ function renderizarActividades() {
 			activityItem.className = 'activity-item';
 			activityItem.dataset.id = act.id;
 			const titleSpan = document.createElement('span');
-			const timeLabel = act.time ? ` (${act.time})` : '';
-			titleSpan.textContent = (act.title || '') + timeLabel;
+			titleSpan.textContent = (act.title || '');
 			activityItem.appendChild(titleSpan);
 			const canManage = canWrite && (isAdmin || (act && act.createdBy && act.createdBy === userId));
 			if (canManage) {
@@ -431,7 +537,7 @@ calendarGrid.addEventListener('drop', async (e) => {
 		return;
 	}
 	// Seguridad: sólo mover si usuario puede gestionar la actividad
-	if (!canWrite || !(isAdmin || dragActivity.createdBy === userId)) {
+	if (!canWrite || !(isAdmin || (dragActivity.createdBy ? dragActivity.createdBy === userId : true))) {
 		alert('No tienes permisos para mover esta actividad.');
 		removeDragHighlights();
 		return;
@@ -467,7 +573,7 @@ function renderizarAgenda(agenda) {
 		badge.className = `status-badge ${statusClass}`;
 		badge.textContent = item.status || '';
 		actions.append(badge);
-	const canManage = canWrite && (isAdmin || (item && item.createdBy && item.createdBy === userId));
+	const canManage = canWrite && (isAdmin || (item && (item.createdBy ? item.createdBy === userId : true)));
 		if (canManage) {
 			const editBtn = document.createElement('button');
 			editBtn.className = 'btn-accion editar';
@@ -557,36 +663,9 @@ function setupFirestoreListeners() {
 
 // --- Lógica del Calendario ---
 function agregarFormularioActividad(cell) {
-	document.querySelectorAll('.actividad-form').forEach(form => form.remove());
-	if (!canWrite) {
-		try { alert('No tienes permisos para crear actividades. Pide acceso al centro.'); } catch (_) {}
-		return;
-	}
-	const form = document.createElement('form');
-	form.className = 'actividad-form';
-	form.innerHTML = `
-		<input type="text" class="input-activity" placeholder="Nueva actividad..." required>
-		<input type="time" class="input-time" placeholder="Hora opcional" style="font-size:0.65rem; padding:2px 4px;">
-	`;
-	cell.appendChild(form);
-	const input = form.querySelector('input.input-activity');
-	const inputTime = form.querySelector('input.input-time');
-	input.focus();
-
-	form.addEventListener('submit', async (e) => {
-		e.preventDefault();
-		if (!requireAuthForWrites()) return;
-		const titulo = input.value;
-		const date = cell.dataset.date;
-		await addDoc(getPublicCollection('actividades'), {
-			title: titulo,
-			date: date,
-			time: (inputTime && inputTime.value) ? inputTime.value : null,
-			timestamp: Date.now(),
-			createdBy: userId || null
-		});
-		form.remove();
-	});
+	// Ahora abrimos el modal avanzado con la fecha preseleccionada
+	const fecha = cell.dataset.date;
+	abrirModalActividad(fecha, null);
 }
         
 // --- Lógica del modal de confirmación ---
@@ -834,58 +913,17 @@ calendarGrid.addEventListener('click', (e) => {
 			await deleteDoc(doc(getPublicCollection('actividades'), activityId));
 		});
 	}
-	// Edición de actividad al hacer clic sobre ella (no en botón eliminar)
+	// Click en actividad: mostrar modal detalle (si no es botón eliminar)
 	const clickedActivity = e.target.closest('.activity-item');
 	if (clickedActivity && !e.target.classList.contains('delete-btn')) {
 		const actId = clickedActivity.dataset.id;
-		// Buscar datos en cache
 		let actData = null;
-		const dateKey = cell ? cell.dataset.date : null;
-		if (dateKey && actividadesMapCache.has(dateKey)) {
-			actData = (actividadesMapCache.get(dateKey) || []).find(a => a.id === actId) || null;
+		const cellDate = clickedActivity.closest('.day-cell')?.dataset.date;
+		if (cellDate && actividadesMapCache.has(cellDate)) {
+			actData = (actividadesMapCache.get(cellDate) || []).find(a => a.id === actId) || null;
 		}
 		if (!actData) return;
-		const canManage = canWrite && (isAdmin || (actData.createdBy && actData.createdBy === userId));
-		if (!canManage) return;
-		// Reemplazar contenido por formulario inline
-		if (clickedActivity.querySelector('form')) return; // ya en edición
-		const currentTitle = actData.title || '';
-		const currentTime = actData.time || '';
-		const currentDate = actData.date || '';
-		clickedActivity.innerHTML = '';
-		const form = document.createElement('form');
-		form.style.display = 'flex';
-		form.style.gap = '4px';
-		form.style.width = '100%';
-		form.innerHTML = `
-			<input type="date" value="${currentDate}" style="width:125px; font-size:0.65rem; padding:2px 4px;" required />
-			<input type="text" value="${currentTitle.replace(/"/g,'&quot;')}" style="flex:1; min-width:0; font-size:0.75rem; padding:2px 4px;" required />
-			<input type="time" value="${currentTime}" style="width:70px; font-size:0.65rem; padding:2px 4px;" />
-			<button type="submit" class="btn-accion editar" style="margin:0; padding:4px 8px; font-size:0.7rem;">Guardar</button>
-			<button type="button" class="btn-accion eliminar" style="margin:0; padding:4px 8px; font-size:0.7rem;">X</button>
-		`;
-		clickedActivity.appendChild(form);
-		const inputDate = form.querySelector('input[type="date"]');
-		const inputTitle = form.querySelector('input[type="text"]');
-		const inputHora = form.querySelector('input[type="time"]');
-		inputTitle.focus();
-		form.addEventListener('submit', async (ev) => {
-			ev.preventDefault();
-			const nuevaFecha = inputDate.value;
-			const nuevoTitulo = inputTitle.value.trim();
-			const nuevaHora = inputHora && inputHora.value ? inputHora.value : null;
-			if (!nuevoTitulo || !nuevaFecha) return;
-			try {
-				await updateDoc(doc(getPublicCollection('actividades'), actId), { title: nuevoTitulo, time: nuevaHora, date: nuevaFecha, timestamp: Date.now() });
-			} catch(err) {
-				console.warn('Error actualizando actividad', err);
-				alert('No se pudo actualizar.');
-			}
-		});
-		form.querySelector('button.btn-accion.eliminar').addEventListener('click', () => {
-			// Cancelar edición: forzar re-render rápido usando cache local
-			renderizarActividades();
-		});
+		mostrarDetalleActividad(actData);
 	}
 });
 
@@ -901,7 +939,7 @@ calendarGrid.addEventListener('dblclick', (e) => {
 	const list = actividadesMapCache.get(dateKey) || [];
 	const actData = list.find(a => a.id === activityId);
 	if (!actData) return;
-	const canManage = canWrite && (isAdmin || (actData.createdBy && actData.createdBy === userId));
+	const canManage = canWrite && (isAdmin || (actData.createdBy ? actData.createdBy === userId : true));
 	if (!canManage) return;
 	// Simular clic para reutilizar lógica existente
 	activityEl.click();

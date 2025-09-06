@@ -506,6 +506,18 @@ h2 {
 	width: 90%;
 }
 
+/* Modal Actividad avanzado */
+#modal-actividad .modal-content { max-width: 640px; }
+.form-actividad label { display:flex; flex-direction:column; font-size:0.85rem; gap:4px; font-weight:500; }
+.form-actividad input, .form-actividad select { width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:0.85rem; }
+.form-actividad .form-row { margin-bottom:14px; }
+.form-actividad .cols-3 { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap:12px; }
+.form-actividad .actions button { margin-top:0; }
+
+/* Detalle actividad */
+#modal-actividad-detalle .detalle-actividad-body p { margin:0; line-height:1.4; }
+#modal-actividad-detalle .detalle-actividad-body span.label { font-weight:600; color:#1f2937; }
+
 .modal-header {
 	display: flex;
 	justify-content: space-between;

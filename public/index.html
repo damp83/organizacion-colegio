@@ -102,6 +102,72 @@
     </main>
   </div>
 
+  <!-- Modal creación/edición de Actividad -->
+  <div id="modal-actividad" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:640px;">
+      <div class="modal-header">
+        <h3 id="modal-act-title">Nueva Actividad</h3>
+        <span class="close-btn-act" style="cursor:pointer;">&times;</span>
+      </div>
+      <form id="form-actividad" class="form-actividad" novalidate>
+        <input type="hidden" id="actividad-id" />
+        <div class="form-row">
+          <label>Nombre de la actividad
+            <input type="text" id="actividad-nombre" required maxlength="200" />
+          </label>
+        </div>
+        <div class="form-row cols-3">
+          <label>Fecha
+            <input type="date" id="actividad-fecha" required />
+          </label>
+          <label>Hora
+            <input type="time" id="actividad-hora" />
+          </label>
+          <label>Duración (min)
+            <input type="number" id="actividad-duracion" min="0" max="1440" step="5" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Tipo de actividad
+            <select id="actividad-tipo">
+              <option value="dentro">Dentro del centro</option>
+              <option value="salida">Salida del centro</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Curso / Grupo
+            <select id="actividad-curso" required></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Personal involucrado (separar por comas)
+            <input type="text" id="actividad-personal" placeholder="Ej: Juan Pérez, María López" />
+          </label>
+        </div>
+        <div class="form-row actions" style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+          <button type="button" id="actividad-cancelar" class="btn-accion eliminar">Cancelar</button>
+          <button type="submit" class="btn-accion">Guardar Actividad</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal detalle actividad (solo lectura) -->
+  <div id="modal-actividad-detalle" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-detalle-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h3 id="modal-act-detalle-title">Actividad</h3>
+        <span class="close-btn-act-det" style="cursor:pointer;">&times;</span>
+      </div>
+      <div id="actividad-detalle-body" class="detalle-actividad-body" style="display:flex; flex-direction:column; gap:10px; font-size:0.9rem;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button id="actividad-detalle-editar" class="btn-accion editar" style="display:none;">Editar</button>
+        <button id="actividad-detalle-cerrar" class="btn-accion eliminar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal para subir documentos -->
   <div id="modal-documento" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-doc-title" aria-hidden="true">
     <div class="modal-content">
