@@ -214,6 +214,12 @@ formSustituciones?.addEventListener('submit',async e=>{
 	const hora=document.getElementById('sustitucion-hora').value.trim();
 	const instrucciones=document.getElementById('sustitucion-instrucciones').value.trim();
 	if(!sustituto||!curso||!asignatura||!hora){ return; }
+	console.debug('DEBUG sustitucion submit',{
+		userId,
+		userEmail: auth?.currentUser?.email,
+		canWrite,
+		data:{sustituto,curso,asignatura,hora,instrucciones}
+	});
 	try{
 		await addDoc(getPublicCollection('sustituciones'),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
 		formSustituciones.reset();
