@@ -1067,7 +1067,12 @@ if (btnLoginGoogle) {
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
 				if (code.includes('popup-closed-by-user')) {
-					console.info('[auth] Popup Google cerrado por el usuario antes de completar.');
+					console.info('[auth] Popup Google cerrado por el usuario antes de completar. Intentando redirect automático.');
+					// Evitar bucle: no relanzar si ya venimos de redirect
+					if (!localStorage.getItem(LS_REDIRECT_MARK)) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'google');
+						try { await signInWithRedirect(auth, provider); } catch(_){}
+					}
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
@@ -1099,7 +1104,11 @@ if (btnLoginMs) {
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
 				if (code.includes('popup-closed-by-user')) {
-					console.info('[auth] Popup Microsoft cerrado por el usuario.');
+					console.info('[auth] Popup Microsoft cerrado por el usuario. Intentando redirect automático.');
+					if (!localStorage.getItem(LS_REDIRECT_MARK)) {
+						localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+						try { await signInWithRedirect(auth, provider); } catch(_){}
+					}
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
