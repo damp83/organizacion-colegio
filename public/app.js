@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithRedirect, getRedirectResult, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 // Eliminado Firebase Storage: se usará Firestore con base64 para archivos pequeños
 
@@ -26,8 +26,8 @@ try {
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 // Modo de autenticación preferido: 'redirect' elimina los warnings de popups
 // Cambiamos a 'popup' por defecto porque el redirect no devuelve resultado en tu entorno
-// Forzamos redirect (popup daba cierre inmediato)
-const AUTH_MODE = 'redirect';
+// Modo popup primero con fallback redirect si bloqueado
+const AUTH_MODE = 'popup';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -1036,31 +1036,68 @@ if (btnLogout) {
 
 if (btnLoginGoogle) {
 	btnLoginGoogle.addEventListener('click', async () => {
+		if (btnLoginGoogle.disabled) return;
+		console.log('[auth][google] click');
+		didManualLogout = false;
+		const provider = new GoogleAuthProvider();
+		provider.setCustomParameters({ prompt: 'select_account' });
+		lastLoginAttempt = { provider: 'google', ts: Date.now() };
 		try {
-			console.log('[auth][google] redirect');
-			didManualLogout = false;
-			btnLoginGoogle.disabled = true; btnLoginGoogle.textContent='Redirigiendo...';
-			const provider = new GoogleAuthProvider();
-			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'google', ts: Date.now() };
-			localStorage.setItem(LS_REDIRECT_MARK, 'google');
-			await signInWithRedirect(auth, provider);
-		} catch(e){ console.error('[auth][google] fallo redirect', e); btnLoginGoogle.disabled=false; btnLoginGoogle.textContent='Entrar con Google'; }
+			if (AUTH_MODE === 'popup') {
+				await signInWithPopup(auth, provider);
+				console.log('[auth][google] popup lanzado');
+			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'google');
+				await signInWithRedirect(auth, provider);
+			}
+		} catch(e) {
+			const code = e?.code || '';
+			console.warn('[auth][google] popup error', code);
+			if (code.includes('popup-blocked') || code.includes('popup-closed-by-user')) {
+				// intentar redirect
+				try {
+					btnLoginGoogle.disabled = true; btnLoginGoogle.textContent='Redirigiendo...';
+					localStorage.setItem(LS_REDIRECT_MARK, 'google');
+					await signInWithRedirect(auth, provider);
+					return;
+				} catch (er2) {
+					console.error('[auth][google] fallback redirect también falló', er2?.code);
+				}
+			}
+		}
 	});
 }
 
 if (btnLoginMs) {
 	btnLoginMs.addEventListener('click', async () => {
+		if (btnLoginMs.disabled) return;
+		console.log('[auth][microsoft] click');
+		didManualLogout = false;
+		const provider = new OAuthProvider('microsoft.com');
+		provider.setCustomParameters({ prompt: 'select_account' });
+		lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 		try {
-			console.log('[auth][microsoft] redirect');
-			didManualLogout = false;
-			btnLoginMs.disabled = true; btnLoginMs.textContent='Redirigiendo...';
-			const provider = new OAuthProvider('microsoft.com');
-			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
-			localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-			await signInWithRedirect(auth, provider);
-		} catch(e){ console.error('[auth][microsoft] fallo redirect', e); btnLoginMs.disabled=false; btnLoginMs.textContent='Entrar con Microsoft'; }
+			if (AUTH_MODE === 'popup') {
+				await signInWithPopup(auth, provider);
+				console.log('[auth][microsoft] popup lanzado');
+			} else {
+				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+				await signInWithRedirect(auth, provider);
+			}
+		} catch(e) {
+			const code = e?.code || '';
+			console.warn('[auth][microsoft] popup error', code);
+			if (code.includes('popup-blocked') || code.includes('popup-closed-by-user')) {
+				try {
+					btnLoginMs.disabled = true; btnLoginMs.textContent='Redirigiendo...';
+					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+					await signInWithRedirect(auth, provider);
+					return;
+				} catch(er2) {
+					console.error('[auth][microsoft] fallback redirect también falló', er2?.code);
+				}
+			}
+		}
 	});
 }
 
