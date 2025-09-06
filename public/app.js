@@ -865,6 +865,11 @@ async function initializeAppClient() {
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
 	try { await setPersistence(auth, browserLocalPersistence); console.log('[auth] Persistence local establecida'); } catch(e){ console.warn('[auth] No se pudo fijar persistence', e); }
+	// Debug entorno auth
+	try {
+		console.log('[auth][debug] href=', location.href, 'origin=', location.origin, 'crossOriginIsolated=', window.crossOriginIsolated);
+		console.log('[auth][debug] userAgent=', navigator.userAgent);
+	} catch(_) {}
 	db = getFirestore(app);
 	// storage eliminado
 
