@@ -237,13 +237,26 @@ function renderizarDocumentos(documentos) {
 		p2.appendChild(strong2);
 		p2.append(' ' + (d.fecha || ''));
 		const elements = [h3, p1, p2];
+		// Botón de descarga visible para usuarios autorizados (canWrite) aunque no sean propietarios
+		if (canWrite) {
+			const downloadBtn = document.createElement('button');
+			downloadBtn.className = 'btn-accion descargar';
+			downloadBtn.type = 'button';
+			downloadBtn.textContent = 'Descargar';
+			// Acción de descarga: por ahora sólo simula (no hay almacenamiento real aún)
+			downloadBtn.addEventListener('click', () => {
+				// Placeholder: en el futuro se integraría con Storage o enlace real
+				alert('Descargando: ' + (d.archivo || 'archivo desconocido'));
+			});
+			elements.push(downloadBtn);
+		}
 		const canManage = canWrite && (isAdmin || (d && d.createdBy && d.createdBy === userId));
 		if (canManage) {
-			const btn = document.createElement('button');
-			btn.className = 'btn-accion eliminar';
-			btn.dataset.id = d.id;
-			btn.textContent = 'Eliminar';
-			elements.push(btn);
+			const delBtn = document.createElement('button');
+			delBtn.className = 'btn-accion eliminar';
+			delBtn.dataset.id = d.id;
+			delBtn.textContent = 'Eliminar';
+			elements.push(delBtn);
 		}
 		card.append(...elements);
 		documentosGrid.appendChild(card);

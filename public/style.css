@@ -231,6 +231,15 @@ h2 {
 	box-shadow: none;
 }
 
+.btn-accion.descargar {
+	background: linear-gradient(180deg, #10b981, #059669); /* emerald */
+	border-color: rgba(16,185,129,0.4);
+	margin-top: 0;
+	font-size: 0.9rem;
+	padding: 8px 14px;
+}
+.btn-accion.descargar:hover { filter: brightness(1.05); }
+
 .btn-accion.eliminar {
 	background: linear-gradient(180deg, #ef4444, #dc2626);
 	border-color: rgba(239,68,68,0.4);
