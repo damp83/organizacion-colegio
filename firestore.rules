@@ -1,9 +1,157 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite leer y escribir solo si el usuario ha iniciado sesión.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.admin == true);
+    }
+
+    function isOwner(resourceData) {
+      return isAuthenticated() && resourceData.createdBy == request.auth.uid;
+    }
+
+    function isAllowedUser() {
+      return isAuthenticated() && (isAdmin() || request.auth.token.allowed == true || isAllowlistedEmail());
+    }
+
+    // Allowlist basada en emails exactos (ya que son cuentas del centro). No requerimos email_verified
+    function isAllowlistedEmail() {
+      return request.auth.token.email in [
+          "alejandra.fernandez@murciaeduca.es",
+          "anaadela.cordoba@murciaeduca.es",
+          "anabelen.cano@murciaeduca.es",
+          "anama.villacieros@murciaeduca.es",
+          "andres.alcaraz@murciaeduca.es",
+          "begona.tornel@murciaeduca.es",
+          "belen.martinez2@murciaeduca.es",
+          "carmenmarta.perez@murciaeduca.es",
+          "catalina.alcazar@murciaeduca.es",
+          "catalina.mendez2@murciaeduca.es",
+          "celiam.requena@murciaeduca.es",
+          "cristina.martinez25@murciaeduca.es",
+          "cristina.vivo@murciaeduca.es",
+          "estela.garcia@murciaeduca.es",
+          "fulgencio.osete2@murciaeduca.es",
+          "josefa.soto@murciaeduca.es",
+          "josefrancisco.nicolas@murciaeduca.es",
+          "josejuan.martinez@murciaeduca.es",
+          "juanjose.almagro@murciaeduca.es",
+          "laura.garcia6@murciaeduca.es",
+          "luis.rodriguez5@murciaeduca.es",
+          "luisfelipe.murcia@murciaeduca.es",
+          "mariaangeles.noguera@murciaeduca.es",
+          "mariaaraceli.cases@murciaeduca.es",
+          "mariaester.carrillo@murciaeduca.es",
+          "mariafrancisc.franco@murciaeduca.es",
+          "mariajosefa.caballero@murciaeduca.es",
+          "mariateresa.martinez4@murciaeduca.es",
+          "marta.martinez3@murciaeduca.es",
+          "nuria.alvarez@murciaeduca.es",
+          "paloma.crespo@murciaeduca.es",
+          "pedro.martinez39@murciaeduca.es",
+          "rita.bohajar@murciaeduca.es",
+          "sonia.escamez@murciaeduca.es",
+          "teresa.fernandez2@murciaeduca.es",
+          "diegoalberto.moya@murciaeduca.es"
+        ];
+    }
+
+    // Validadores comunes
+    function isIsoDate(s) {
+      // YYYY-MM-DD simple check
+      return s is string && s.size() == 10 && s.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isShortString(s, max) {
+      return s is string && s.size() <= max;
+    }
+
+    function isHourString(s) {
+      // Formato HH:MM 24h
+      return s is string && s.size() == 5 && s.matches('^([0-1][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    function isHourRange(s) {
+      // Formato HH:MM-HH:MM 24h
+      return s is string && s.size() == 11 && s.matches('^([0-1][0-9]|2[0-3]):[0-5][0-9]-([0-1][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    // Rutas públicas de la app
+    match /artifacts/{appId}/public/data/{collection}/{docId} {
+      allow read: if true; // público de solo lectura
+
+  // Escrituras: solo usuarios permitidos (allowed) o admin; updates/deletes además exigen propiedad o admin
+  allow create: if isAllowedUser() && isValidCreate(collection, request.resource.data);
+  allow update: if isAllowedUser() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data);
+  allow delete: if isAllowedUser() && (isAdmin() || isOwner(resource.data));
+
+      function hasValidBaseFields(newData) {
+        return newData.timestamp is int && newData.createdBy == request.auth.uid;
+      }
+
+      function isValidCreate(col, newData) {
+        return hasValidBaseFields(newData) &&
+          ((col == 'documentos' && validDocumentos(newData)) ||
+           (col == 'anuncios' && validAnuncios(newData)) ||
+           (col == 'actividades' && validActividades(newData)) ||
+           (col == 'agenda' && validAgenda(newData)) ||
+           (col == 'sustituciones' && validSustituciones(newData)));
+      }
+
+      function isValidUpdate(col, oldData, newData) {
+        // No permitir cambiar createdBy
+        return newData.createdBy == oldData.createdBy &&
+          newData.timestamp is int &&
+          ((col == 'documentos' && validDocumentos(newData)) ||
+           (col == 'anuncios' && validAnuncios(newData)) ||
+           (col == 'actividades' && validActividades(newData)) ||
+           (col == 'agenda' && validAgenda(newData)) ||
+           (col == 'sustituciones' && validSustituciones(newData)));
+      }
+
+      function validDocumentos(d) {
+        return isShortString(d.nombre, 200) &&
+               isShortString(d.archivo, 400) &&
+               isShortString(d.fecha, 20);
+      }
+
+      function validAnuncios(d) {
+        return isShortString(d.texto, 1000);
+      }
+
+      function validActividades(d) {
+  return isShortString(d.title, 200) &&
+         isIsoDate(d.date) &&
+         (d.time == null || isHourString(d.time)) &&
+         // tipo sólo dos valores permitidos
+         (d.tipo in ['dentro','salida']) &&
+         // duración opcional 0..1440
+         (d.duration == null || (d.duration is int && d.duration >= 0 && d.duration <= 1440)) &&
+         // curso: lista obligatoria (al menos 1) tamaño razonable <= 30
+         (d.curso is list && d.curso.size() >= 1 && d.curso.size() <= 30) &&
+         // personal opcional: lista limitada
+         (d.personal == null || (d.personal is list && d.personal.size() <= 60));
+      }
+
+      function validAgenda(d) {
+        return isShortString(d.title, 200) &&
+               isIsoDate(d.date) &&
+               (d.status in ['Programada','En curso','Finalizada','Cancelada']) &&
+               (d.documento == null || isShortString(d.documento, 1000)) &&
+               isShortString(d.description, 2000);
+      }
+
+      function validSustituciones(d) {
+  return isShortString(d.sustituto, 200) &&
+         isShortString(d.curso, 200) &&
+         isShortString(d.asignatura, 200) &&
+         // Permite ahora: rango HH:MM-HH:MM (preferido), o única hora HH:MM, o etiqueta corta <=20 (legacy)
+         ( (d.hora is string) && ( isHourRange(d.hora) || isHourString(d.hora) || isShortString(d.hora, 20) ) ) &&
+         (d.instrucciones == null || isShortString(d.instrucciones, 4000));
+      }
     }
   }
 }

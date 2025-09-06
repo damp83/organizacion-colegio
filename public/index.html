@@ -1,89 +1,357 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Cabeceras COOP/COEP se aplican ahora vía Hosting sólo en rutas necesarias -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>CEIP LA Arboleda – Gestión del Claustro</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.2.1/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.2.1/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <picture>
+          <source srcset="./logo.png" type="image/png">
+          <img class="logo" src="./logo.svg" alt="CEIP LA Arboleda - Logo" width="56" height="56" />
+        </picture>
+        <div class="brand-text">
+          <h1>CEIP LA Arboleda</h1>
+          <p class="subtitle">Gestión del Claustro</p>
+        </div>
+      </div>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-secciones">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="user-info">Cargando usuario...</div>
+      <div class="auth-actions">
+        <button id="btn-login-google" class="btn-accion">Entrar con Google</button>
+        <button id="btn-logout" class="btn-accion" style="display:none;">Cerrar sesión</button>
+      </div>
+    </header>
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+    <div class="nav-bar" id="nav-secciones">
+  <button id="btn-documentos" class="active">Documentos<span class="badge-dot"></span></button>
+  <button id="btn-calendario">Calendario<span class="badge-dot"></span></button>
+  <button id="btn-anuncios">Anuncios<span class="badge-dot"></span></button>
+  <button id="btn-agenda">Agenda<span class="badge-dot"></span></button>
+    <button id="btn-sustituciones">Sustituciones<span class="badge-dot"></span></button>
     </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+    <main>
+      <!-- Sección de Documentos -->
+      <section id="seccion-documentos" class="seccion active">
+        <h2>Documentos Institucionales</h2>
+        <div class="documentos-grid">
+          <p class="loading-message">Cargando documentos...</p>
+        </div>
+        <button class="btn-accion" id="btn-subir-documento">Subir Documento</button>
+      </section>
 
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-  </body>
+      <!-- Sección de Calendario -->
+      <section id="seccion-calendario" class="seccion">
+        <h2>Calendario de Actividades</h2>
+        <div class="calendar-nav">
+          <button id="prev-month">&lt;</button>
+          <span id="month-year"></span>
+          <button id="next-month">&gt;</button>
+        </div>
+        <div class="calendar-filtros" id="calendar-filtros" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; margin-bottom:14px;">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:240px;">
+            <label for="filtro-cursos" style="font-size:0.75rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar por cursos</label>
+            <select id="filtro-cursos" multiple size="4" style="min-width:240px; padding:6px 8px; font-size:0.75rem; border-radius:8px; border:1px solid #d1d5db; background:#fff;">
+              <!-- opciones dinámicas -->
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <button id="filtro-cursos-clear" class="btn-accion" style="margin-top:18px; padding:8px 14px; font-size:0.75rem;">Limpiar filtro</button>
+          </div>
+          <small style="font-size:0.65rem; color:#6b7280; max-width:280px; line-height:1.3;">Selecciona uno o varios cursos para mostrar sólo sus actividades. Si no seleccionas nada se muestran todas.</small>
+        </div>
+        <div class="calendar-grid" id="calendar-grid">
+          <div class="day-header">Lun</div>
+          <div class="day-header">Mar</div>
+          <div class="day-header">Mié</div>
+          <div class="day-header">Jue</div>
+          <div class="day-header">Vie</div>
+          <div class="day-header">Sáb</div>
+          <div class="day-header">Dom</div>
+        </div>
+      </section>
+
+      <!-- Sección de Anuncios -->
+      <section id="seccion-anuncios" class="seccion">
+        <h2>Tablón de Anuncios</h2>
+        <form id="form-anuncio" class="anuncios-form">
+          <textarea id="anuncio-texto" placeholder="Escribe tu anuncio aquí..." required></textarea>
+          <button type="submit" class="btn-accion">Publicar Anuncio</button>
+        </form>
+        <div id="lista-anuncios">
+          <p class="loading-message">Cargando anuncios...</p>
+        </div>
+      </section>
+
+      <!-- Sección de Agenda -->
+      <section id="seccion-agenda" class="seccion">
+        <h2>Agenda de Reuniones</h2>
+        <form id="form-agenda" class="agenda-form">
+          <input type="hidden" id="agenda-id">
+          <input type="text" id="agenda-titulo" placeholder="Título de la reunión" required>
+          <input type="date" id="agenda-fecha" required>
+          <select id="agenda-estado">
+            <option value="Programada">Programada</option>
+            <option value="En curso">En curso</option>
+            <option value="Finalizada">Finalizada</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+          <input type="url" id="agenda-documento" placeholder="Enlace a documento (opcional)">
+          <textarea id="agenda-descripcion" placeholder="Descripción de la reunión..." rows="4"></textarea>
+          <button type="submit" class="btn-accion">Añadir Reunión</button>
+        </form>
+        <div id="lista-agenda" class="agenda-list">
+          <p class="loading-message">Cargando reuniones...</p>
+        </div>
+      </section>
+
+      <!-- Sección de Sustituciones -->
+      <section id="seccion-sustituciones" class="seccion">
+        <h2>Gestión de Sustituciones</h2>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-curso" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar curso</label>
+            <input type="text" id="filtro-sust-curso" placeholder="Ej: 3º Primaria A" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-asig" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar asignatura</label>
+            <input type="text" id="filtro-sust-asig" placeholder="Ej: Matemáticas" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <button id="filtro-sust-clear" class="btn-accion" style="height:34px; font-size:0.7rem;">Limpiar</button>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2; max-width:220px;">Los filtros se aplican en vivo sobre la lista.</small>
+        </div>
+        <form id="form-sustituciones" class="agenda-form" style="margin-bottom:18px;">
+          <input type="hidden" id="sustitucion-id" />
+          <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+            <input type="text" id="sustitucion-sustituto" placeholder="Maestro que sustituye" required>
+            <select id="sustitucion-dia" required title="Día">
+              <option value="" disabled selected>Día</option>
+              <option value="Lunes">Lunes</option>
+              <option value="Martes">Martes</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Jueves">Jueves</option>
+              <option value="Viernes">Viernes</option>
+            </select>
+            <select id="sustitucion-sesion" required title="Sesión">
+              <option value="" disabled selected>Sesión</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+            <!-- Curso -->
+            <select id="sustitucion-curso" required title="Curso">
+              <option value="" disabled selected>Curso</option>
+              <optgroup label="Infantil">
+                <option value="Infantil 3 A">Infantil 3 A</option>
+                <option value="Infantil 3 B">Infantil 3 B</option>
+                <option value="Infantil 4 A">Infantil 4 A</option>
+                <option value="Infantil 4 B">Infantil 4 B</option>
+                <option value="Infantil 5 A">Infantil 5 A</option>
+                <option value="Infantil 5 B">Infantil 5 B</option>
+              </optgroup>
+              <optgroup label="Primaria">
+                <option value="1º Primaria A">1º Primaria A</option>
+                <option value="1º Primaria B">1º Primaria B</option>
+                <option value="2º Primaria A">2º Primaria A</option>
+                <option value="2º Primaria B">2º Primaria B</option>
+                <option value="3º Primaria A">3º Primaria A</option>
+                <option value="3º Primaria B">3º Primaria B</option>
+                <option value="4º Primaria A">4º Primaria A</option>
+                <option value="4º Primaria B">4º Primaria B</option>
+                <option value="5º Primaria A">5º Primaria A</option>
+                <option value="5º Primaria B">5º Primaria B</option>
+                <option value="6º Primaria A">6º Primaria A</option>
+                <option value="6º Primaria B">6º Primaria B</option>
+              </optgroup>
+            </select>
+            <!-- Asignatura -->
+            <select id="sustitucion-asignatura" required title="Asignatura">
+              <option value="" disabled selected>Asignatura</option>
+              <option value="Lengua">Lengua</option>
+              <option value="Matemáticas">Matemáticas</option>
+              <option value="Inglés">Inglés</option>
+              <option value="Profundización Educativa">Profundización Educativa</option>
+              <option value="Religión">Religión</option>
+              <option value="Atención Educativa">Atención Educativa</option>
+              <option value="Valores">Valores</option>
+              <option value="Educación Física">Educación Física</option>
+              <option value="Plástica">Plástica</option>
+              <option value="Ciencias Sociales">Ciencias Sociales</option>
+              <option value="Ciencias Naturales">Ciencias Naturales</option>
+              <option value="Francés">Francés</option>
+              <option value="Otros Infantil">Otros Infantil</option>
+              <option value="Música">Música</option>
+            </select>
+            <!-- Hora (intervalo) -->
+            <div style="display:flex; gap:4px; align-items:center;">
+              <select id="sustitucion-hora-inicio" required title="Hora inicio" style="flex:1;">
+                <option value="" disabled selected>Inicio</option>
+              </select>
+              <span style="font-size:0.7rem; color:#555;">-</span>
+              <select id="sustitucion-hora-fin" required title="Hora fin" style="flex:1;">
+                <option value="" disabled selected>Fin</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="sustitucion-instrucciones" placeholder="Instrucciones para la sustitución" rows="4" style="margin-top:10px;"></textarea>
+          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-accion">Registrar Sustitución</button>
+          </div>
+        </form>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0 6px; flex-wrap:wrap; gap:8px;">
+          <h3 style="margin:0; font-size:0.95rem;">Horario semanal de sustituciones</h3>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="btn-limpiar-semana-sust" class="btn-accion eliminar" style="background:#b91c1c;">Limpiar semana</button>
+          </div>
+        </div>
+        <div id="lista-sustituciones" class="agenda-list" style="padding:0; background:transparent;">
+          <div style="overflow-x:auto;">
+            <table id="tabla-sustituciones" style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+              <thead>
+                <tr>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Sesión</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Lunes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Martes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Miércoles</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Jueves</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Viernes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+          <div id="sustituciones-sin-slot" style="margin-top:12px;">
+            <!-- Listado para sustituciones sin día/sesión (legacy) -->
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal creación/edición de Actividad -->
+  <div id="modal-actividad" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:640px;">
+      <div class="modal-header">
+        <h3 id="modal-act-title">Nueva Actividad</h3>
+        <span class="close-btn-act" style="cursor:pointer;">&times;</span>
+      </div>
+      <form id="form-actividad" class="form-actividad" novalidate>
+        <input type="hidden" id="actividad-id" />
+        <div class="form-row">
+          <label>Nombre de la actividad
+            <input type="text" id="actividad-nombre" required maxlength="200" />
+          </label>
+        </div>
+        <div class="form-row cols-3">
+          <label>Fecha
+            <input type="date" id="actividad-fecha" required />
+          </label>
+          <label>Hora
+            <input type="time" id="actividad-hora" />
+          </label>
+          <label>Duración (min)
+            <input type="number" id="actividad-duracion" min="0" max="1440" step="5" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Tipo de actividad
+            <select id="actividad-tipo">
+              <option value="dentro">Dentro del centro</option>
+              <option value="salida">Salida del centro</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Curso / Grupo
+            <select id="actividad-curso" required multiple size="6" aria-label="Selecciona uno o varios cursos"></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Personal involucrado (separar por comas)
+            <input type="text" id="actividad-personal" placeholder="Ej: Juan Pérez, María López" />
+          </label>
+        </div>
+        <div class="form-row actions" style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+          <button type="button" id="actividad-cancelar" class="btn-accion eliminar">Cancelar</button>
+          <button type="submit" class="btn-accion">Guardar Actividad</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal detalle actividad (solo lectura) -->
+  <div id="modal-actividad-detalle" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-detalle-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h3 id="modal-act-detalle-title">Actividad</h3>
+        <span class="close-btn-act-det" style="cursor:pointer;">&times;</span>
+      </div>
+      <div id="actividad-detalle-body" class="detalle-actividad-body" style="display:flex; flex-direction:column; gap:10px; font-size:0.9rem;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button id="actividad-detalle-editar" class="btn-accion editar" style="display:none;">Editar</button>
+        <button id="actividad-detalle-cerrar" class="btn-accion eliminar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para subir documentos -->
+  <div id="modal-documento" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-doc-title" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-doc-title">Subir Documento</h3>
+        <span class="close-btn-doc">&times;</span>
+      </div>
+      <form id="form-documento">
+        <input type="hidden" id="documento-id" />
+        <input type="hidden" id="documento-has-file" value="0" />
+        <div class="form-group">
+          <label for="documento-titulo">Título:</label>
+          <input type="text" id="documento-titulo" required>
+        </div>
+        <div class="form-group">
+          <label for="documento-archivo">Archivo:</label>
+          <input type="file" id="documento-archivo" required>
+          <small id="documento-archivo-info" style="display:none; font-size:0.65rem; color:#374151;">(Se mantendrá el archivo existente si no seleccionas uno nuevo)</small>
+        </div>
+        <button type="submit" class="btn-accion">Subir Documento</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para eliminaciones -->
+  <div id="modal-confirmacion" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="confirm-title">Confirmar</h3>
+        <span class="close-btn">&times;</span>
+      </div>
+      <p id="confirm-message">¿Estás seguro de que quieres eliminar este elemento?</p>
+      <p id="confirm-extra" style="display:none; font-size:0.7rem; color:#991b1b; margin-top:-4px;">Esta acción no se puede deshacer.</p>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="btn-cancelar" class="btn-accion eliminar">Cancelar</button>
+        <button id="btn-confirmar" class="btn-accion">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carga opcional de configuración local: crea config.js a partir de config.example.js -->
+  <script src="./config.js" defer></script>
+  <script type="module" src="./app.js"></script>
+</body>
 </html>

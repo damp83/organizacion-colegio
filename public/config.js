@@ -6,7 +6,8 @@ window.__firebase_config = {
   apiKey: "AIzaSyDVBTBgqKP_4uf8GHh4F5lhvcnOedXjR_Y",
   authDomain: "organizacioncentro-d3cd7.firebaseapp.com",
   projectId: "organizacioncentro-d3cd7",
-  // storageBucket omitido porque no usamos Firebase Storage (archivos en Firestore base64)
+  // storageBucket debe usar el dominio appspot.com (el SDK genera las URLs correctas a firebasestorage.googleapis.com)
+  storageBucket: "organizacioncentro-d3cd7.appspot.com",
   messagingSenderId: "1018056761030",
   appId: "1:1018056761030:web:169222b13f897228bb81c7",
   measurementId: "G-NQJQW02JDY"

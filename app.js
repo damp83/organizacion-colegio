@@ -87,11 +87,17 @@ function renderizarDocumentos(documentos) {
     documentos.forEach(doc => {
         const card = document.createElement('div');
         card.className = 'documento-card';
+        const tieneArchivoInline = !!doc.archivoBase64;
+        const sizeInfo = doc.size ? ` (${Math.round(doc.size/1024)} KB)` : '';
+        const downloadBtn = tieneArchivoInline ? `<button class="btn-accion descargar" data-id="${doc.id}" data-nombre="${doc.archivo}" aria-label="Descargar ${doc.archivo}">Descargar</button>` : '<span class="no-file">(sin contenido)</span>';
         card.innerHTML = `
             <h3>${doc.nombre}</h3>
-            <p><strong>Archivo:</strong> ${doc.archivo}</p>
+            <p><strong>Archivo:</strong> ${doc.archivo}${sizeInfo}</p>
             <p><strong>Fecha de subida:</strong> ${doc.fecha}</p>
-            <button class="btn-accion eliminar" data-id="${doc.id}">Eliminar</button>
+            <div class="acciones-doc">
+                ${downloadBtn}
+                <button class="btn-accion eliminar" data-id="${doc.id}">Eliminar</button>
+            </div>
         `;
         documentosGrid.appendChild(card);
     });
@@ -385,28 +391,81 @@ formDocumento.addEventListener('submit', async (e) => {
     const archivo = document.getElementById('documento-archivo').files[0];
     
     if (titulo && archivo) {
-        const newDocument = {
-            nombre: titulo,
-            archivo: archivo.name,
-            fecha: new Date().toLocaleDateString('es-ES'),
-            timestamp: Date.now()
-        };
-        
-        await addDoc(getPublicCollection('documentos'), newDocument);
+        // Límite práctico: mantener margen por metadatos respecto a 1MB Firestore
+        const MAX_BYTES = 700 * 1024; // ~700KB
+        if (archivo.size > MAX_BYTES) {
+            alert(`El archivo supera el límite permitido (${Math.round(MAX_BYTES/1024)} KB). Tamaño actual: ${Math.round(archivo.size/1024)} KB`);
+            return;
+        }
+        try {
+            const base64 = await fileToBase64(archivo);
+            const newDocument = {
+                nombre: titulo,
+                archivo: archivo.name,
+                mimeType: archivo.type || 'application/octet-stream',
+                size: archivo.size,
+                archivoBase64: base64.split(',')[1], // quitar encabezado data:
+                fecha: new Date().toLocaleDateString('es-ES'),
+                timestamp: Date.now()
+            };
+            await addDoc(getPublicCollection('documentos'), newDocument);
+        } catch (err) {
+            console.error('Error convirtiendo archivo a base64', err);
+            alert('No se pudo procesar el archivo.');
+        }
     }
     modalDocumento.style.display = 'none';
     modalDocumento.setAttribute('aria-hidden', 'true');
     formDocumento.reset();
 });
 
-documentosGrid.addEventListener('click', (e) => {
+documentosGrid.addEventListener('click', async (e) => {
     if (e.target.classList.contains('eliminar')) {
         const id = e.target.dataset.id;
         showConfirmationModal('¿Estás seguro de que quieres eliminar este documento?', async () => {
             await deleteDoc(doc(getPublicCollection('documentos'), id));
         });
     }
+    if (e.target.classList.contains('descargar')) {
+        const id = e.target.dataset.id;
+        try {
+            const docRef = doc(getPublicCollection('documentos'), id);
+            const snap = await getDoc(docRef);
+            if (snap.exists()) {
+                const data = snap.data();
+                if (!data.archivoBase64) {
+                    alert('Este documento no tiene contenido almacenado.');
+                    return;
+                }
+                const bytes = atob(data.archivoBase64);
+                const arr = new Uint8Array(bytes.length);
+                for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+                const blob = new Blob([arr], { type: data.mimeType || 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.archivo || 'archivo';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+            }
+        } catch (err) {
+            console.error('Error al descargar archivo inline', err);
+            alert('No se pudo descargar el archivo.');
+        }
+    }
 });
+
+// Utilidad: convertir archivo a base64 (DataURL)
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 
 // Evento del formulario de anuncios
 formAnuncio.addEventListener('submit', async (e) => {
