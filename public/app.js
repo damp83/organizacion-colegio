@@ -801,6 +801,9 @@ formDocumento.addEventListener('submit', async (e) => {
 	const safeName = archivo.name.replace(/[^a-zA-Z0-9._-]/g,'_');
 	const path = `documentos/${Date.now()}_${safeName}`;
 	try {
+		// Forzar refresh del token para asegurar que incluye email (evita falsos 403 que parecen CORS)
+		if (auth.currentUser) { try { await auth.currentUser.getIdToken(true); } catch(_) {} }
+		console.log('[upload] Subiendo', { path, name: archivo.name, type: archivo.type, size: archivo.size });
 		const refFile = storageRef(storage, path);
 		await uploadBytes(refFile, archivo, { contentType: archivo.type || 'application/octet-stream' });
 		await addDoc(getPublicCollection('documentos'), {
@@ -816,7 +819,8 @@ formDocumento.addEventListener('submit', async (e) => {
 		modalDocumento.setAttribute('aria-hidden', 'true');
 		formDocumento.reset();
 	} catch (err) {
-		alert('Error subiendo: ' + (err?.code || err?.message));
+		console.warn('[upload] Error', err);
+		alert('Error subiendo: ' + (err?.code || err?.message || err));
 	}
 });
 
