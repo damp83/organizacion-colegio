@@ -92,7 +92,8 @@ service cloud.firestore {
           ((col == 'documentos' && validDocumentos(newData)) ||
            (col == 'anuncios' && validAnuncios(newData)) ||
            (col == 'actividades' && validActividades(newData)) ||
-           (col == 'agenda' && validAgenda(newData)));
+           (col == 'agenda' && validAgenda(newData)) ||
+           (col == 'sustituciones' && validSustituciones(newData)));
       }
 
       function isValidUpdate(col, oldData, newData) {
@@ -102,7 +103,8 @@ service cloud.firestore {
           ((col == 'documentos' && validDocumentos(newData)) ||
            (col == 'anuncios' && validAnuncios(newData)) ||
            (col == 'actividades' && validActividades(newData)) ||
-           (col == 'agenda' && validAgenda(newData)));
+           (col == 'agenda' && validAgenda(newData)) ||
+           (col == 'sustituciones' && validSustituciones(newData)));
       }
 
       function validDocumentos(d) {
@@ -135,6 +137,14 @@ service cloud.firestore {
                (d.status in ['Programada','En curso','Finalizada','Cancelada']) &&
                (d.documento == null || isShortString(d.documento, 1000)) &&
                isShortString(d.description, 2000);
+      }
+
+      function validSustituciones(d) {
+        return isShortString(d.sustituto, 200) &&
+               isShortString(d.curso, 200) &&
+               isShortString(d.asignatura, 200) &&
+               isHourString(d.hora) &&
+               (d.instrucciones == null || isShortString(d.instrucciones, 4000));
       }
     }
   }

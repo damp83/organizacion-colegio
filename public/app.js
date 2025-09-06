@@ -44,6 +44,9 @@ const formAnuncio=document.getElementById('form-anuncio');
 const listaAnuncios=document.getElementById('lista-anuncios');
 const formAgenda=document.getElementById('form-agenda');
 const listaAgenda=document.getElementById('lista-agenda');
+// Sustituciones
+const formSustituciones=document.getElementById('form-sustituciones');
+const listaSustituciones=document.getElementById('lista-sustituciones');
 const modalConfirmacion=document.getElementById('modal-confirmacion');
 const btnConfirmar=document.getElementById('btn-confirmar');
 const btnCancelar=document.getElementById('btn-cancelar');
@@ -120,6 +123,40 @@ function abreviarCurso(n){ if(!n) return ''; const p=n.split(/\s+/); if(p[0]==='
 function renderizarDocumentos(docs){ documentosGrid.innerHTML=''; if(!docs.length){ documentosGrid.innerHTML='<p class="loading-message">No hay documentos</p>'; return; } docs.forEach(d=>{ const card=document.createElement('div'); card.className='documento-card'; card.innerHTML=`<h3>${d.nombre||''}</h3><p><strong>Archivo:</strong> ${d.archivo||''}</p><p><strong>Fecha:</strong> ${d.fecha||''}</p>`; if(d.archivoBase64){ const b=document.createElement('button'); b.type='button'; b.textContent='Descargar'; b.className='btn-accion descargar'; b.onclick=()=>{ try{ const bytes=atob(d.archivoBase64); const arr=new Uint8Array(bytes.length); for(let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i); const blob=new Blob([arr],{type:d.mimeType||'application/octet-stream'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=d.archivo||'archivo'; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},1200);}catch{ alert('No se pudo descargar'); } }; card.appendChild(b);} const canManage=canWrite && (isAdmin||(d.createdBy?d.createdBy===userId:true)); if(canManage){ const del=document.createElement('button'); del.className='btn-accion eliminar'; del.dataset.id=d.id; del.textContent='Eliminar'; card.appendChild(del);} documentosGrid.appendChild(card); }); }
 function renderizarAnuncios(list){ listaAnuncios.innerHTML=''; if(!list.length){ listaAnuncios.innerHTML='<p class="loading-message">No hay anuncios</p>'; return; } list.forEach(a=>{ const item=document.createElement('div'); item.className='anuncio-item'; const span=document.createElement('span'); span.textContent=a.texto||''; item.appendChild(span); if(canWrite && (isAdmin||(a.createdBy?a.createdBy===userId:true))){ const b=document.createElement('button'); b.className='btn-accion eliminar'; b.dataset.id=a.id; b.textContent='Eliminar'; b.style.marginLeft='auto'; item.appendChild(b);} listaAnuncios.appendChild(item); }); }
 function renderizarAgenda(items){ items.sort((a,b)=>new Date(a.date)-new Date(b.date)); listaAgenda.innerHTML=''; if(!items.length){ listaAgenda.innerHTML='<p class="loading-message">No hay reuniones</p>'; return; } items.forEach(it=>{ const cont=document.createElement('div'); cont.className='agenda-item'; const h=document.createElement('div'); h.className='item-header'; const t=document.createElement('h4'); t.textContent=it.title||''; const actions=document.createElement('div'); actions.className='actions'; const badge=document.createElement('span'); badge.className='status-badge'; badge.textContent=it.status||''; actions.appendChild(badge); const canManage=canWrite && (isAdmin||(it.createdBy?it.createdBy===userId:true)); if(canManage){ const e=document.createElement('button'); e.className='btn-accion editar'; e.dataset.id=it.id; e.textContent='Editar'; const d=document.createElement('button'); d.className='btn-accion eliminar'; d.dataset.id=it.id; d.textContent='Eliminar'; actions.append(e,d);} h.append(t,actions); const pf=document.createElement('p'); pf.innerHTML=`<strong>Fecha:</strong> ${it.date||''}`; const pd=document.createElement('p'); pd.innerHTML=`<strong>Descripción:</strong> ${it.description||''}`; cont.append(h,pf,pd); if(it.documento){ try{ const url=new URL(it.documento); const p=document.createElement('p'); p.innerHTML=`<strong>Documento:</strong> <a target="_blank" href="${url.href}">Ver</a>`; cont.appendChild(p);}catch{} } listaAgenda.appendChild(cont); }); }
+// Sustituciones
+function renderizarSustituciones(items){
+	listaSustituciones.innerHTML='';
+	if(!items.length){
+		listaSustituciones.innerHTML='<p class="loading-message">No hay sustituciones registradas.</p>';
+		return;
+	}
+	// Ordenar por timestamp descendente (recientes primero)
+	items.sort((a,b)=> (b.timestamp||0)-(a.timestamp||0));
+	items.forEach(it=>{
+		const cont=document.createElement('div');
+		cont.className='agenda-item';
+		const header=document.createElement('div');
+		header.className='item-header';
+		const h4=document.createElement('h4');
+		h4.textContent=`${it.sustituto||''} → ${it.curso||''}`;
+		const actions=document.createElement('div');
+		actions.className='actions';
+		const spanHora=document.createElement('span'); spanHora.className='status-badge'; spanHora.textContent=it.hora||''; actions.appendChild(spanHora);
+		const canManage=canWrite && (isAdmin||(it.createdBy?it.createdBy===userId:true));
+		if(canManage){
+			const del=document.createElement('button');
+			del.className='btn-accion eliminar';
+			del.dataset.id=it.id;
+			del.textContent='Eliminar';
+			actions.appendChild(del);
+		}
+		header.append(h4,actions);
+		const pAsig=document.createElement('p'); pAsig.innerHTML=`<strong>Asignatura:</strong> ${it.asignatura||''}`;
+		const pInstr=document.createElement('p'); pInstr.innerHTML=`<strong>Instrucciones:</strong> ${(it.instrucciones||'').replace(/</g,'&lt;')}`;
+		cont.append(header,pAsig,pInstr);
+		listaSustituciones.appendChild(cont);
+	});
+}
 function renderizarCalendario(){ const year=currentDate.getFullYear(); const month=currentDate.getMonth(); monthYearDisplay.textContent=new Date(year,month).toLocaleString('es-ES',{month:'long',year:'numeric'}); calendarGrid.querySelectorAll('.day-cell,.other-month').forEach(c=>c.remove()); const first=new Date(year,month,1); const last=new Date(year,month+1,0); const offset=(first.getDay()+6)%7; for(let i=0;i<offset;i++){ const e=document.createElement('div'); e.className='day-cell other-month'; calendarGrid.appendChild(e);} for(let d=1; d<=last.getDate(); d++){ const cell=document.createElement('div'); cell.className='day-cell'; cell.dataset.date=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; cell.innerHTML=`<span class='day-number'>${d}</span>`; calendarGrid.appendChild(cell);} document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); }
 function renderizarActividades(){ const filtro=filtroCursosSelect?[...filtroCursosSelect.selectedOptions].map(o=>o.value):[]; document.querySelectorAll('.day-cell').forEach(cell=>{ [...cell.querySelectorAll('.activity-item')].forEach(a=>a.remove()); (cell.activities||[]).forEach(act=>{ if(filtro.length){ const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(!cs.some(c=>filtro.includes(c))) return; } const item=document.createElement('div'); item.className='activity-item'; const tipo=(act.tipo||'').toLowerCase(); if(['dentro','salida'].includes(tipo)) item.classList.add('tipo-'+tipo); else if(tipo) item.classList.add('tipo-otro'); item.dataset.id=act.id; const tt=document.createElement('span'); tt.textContent=act.title||''; item.appendChild(tt); const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(cs.length){ const wrap=document.createElement('div'); wrap.className='curso-tags'; cs.slice(0,2).forEach(c=>{ const s=document.createElement('span'); s.className='curso-tag'; s.textContent=abreviarCurso(c); wrap.appendChild(s); }); if(cs.length>2){ const extra=document.createElement('span'); extra.className='curso-tag out'; extra.textContent='+'+(cs.length-2); wrap.appendChild(extra);} item.appendChild(wrap);} const canManage=canWrite && (isAdmin||(act.createdBy?act.createdBy===userId:true)); if(canManage){ const del=document.createElement('button'); del.className='delete-btn'; del.textContent='×'; del.dataset.id=act.id; item.appendChild(del); item.setAttribute('draggable','true'); item.addEventListener('dragstart',ev=>{ try{ev.dataTransfer.effectAllowed='move';}catch{} dragActivity=act; dragSourceDate=cell.dataset.date; item.classList.add('dragging'); }); item.addEventListener('dragend',()=>{ dragActivity=null; dragSourceDate=null; item.classList.remove('dragging'); document.querySelectorAll('.day-cell.drag-over').forEach(c=>c.classList.remove('drag-over')); }); } cell.appendChild(item); }); }); }
 
@@ -129,6 +166,8 @@ function setupFirestoreListeners(){
  onSnapshot(getPublicCollection('anuncios'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); });
  onSnapshot(getPublicCollection('actividades'),qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); });
  onSnapshot(getPublicCollection('agenda'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); });
+	// Sustituciones
+	onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); });
 }
 
 // Navegación
@@ -164,6 +203,29 @@ listaAnuncios?.addEventListener('click',e=>{ if(e.target.classList.contains('eli
 formAgenda?.addEventListener('submit',async e=>{ e.preventDefault(); if(!requireAuth()||!canWrite){alert('Sin permisos');return;} const id=document.getElementById('agenda-id').value; const titulo=document.getElementById('agenda-titulo').value; const fecha=document.getElementById('agenda-fecha').value; const estado=document.getElementById('agenda-estado').value; const documento=document.getElementById('agenda-documento').value; const descripcion=document.getElementById('agenda-descripcion').value; if(id){ await updateDoc(doc(getPublicCollection('agenda'),id),{ title:titulo, date:fecha, status:estado, documento, description:descripcion }); } else { await addDoc(getPublicCollection('agenda'),{ title:titulo, date:fecha, status:estado, documento, description:descripcion, timestamp:Date.now(), createdBy:userId||null }); } formAgenda.reset(); document.getElementById('agenda-id').value=''; });
 listaAgenda?.addEventListener('click',async e=>{ if(e.target.classList.contains('eliminar')){ if(!requireAuth()||!canWrite){alert('Sin permisos');return;} const id=e.target.dataset.id; showConfirmation('¿Eliminar reunión?', async()=>{ await deleteDoc(doc(getPublicCollection('agenda'),id)); }); } if(e.target.classList.contains('editar')){ const id=e.target.dataset.id; try{ const snap=await getDoc(doc(getPublicCollection('agenda'),id)); if(snap.exists()){ const it=snap.data(); document.getElementById('agenda-id').value=snap.id; document.getElementById('agenda-titulo').value=it.title; document.getElementById('agenda-fecha').value=it.date; document.getElementById('agenda-estado').value=it.status; document.getElementById('agenda-documento').value=it.documento||''; document.getElementById('agenda-descripcion').value=it.description; } }catch{} } });
 listaAgenda?.addEventListener('dblclick',async e=>{ const cont=e.target.closest('.agenda-item'); if(!cont) return; const btn=cont.querySelector('.btn-accion.editar'); if(!btn) return; const id=btn.dataset.id; try{ const snap=await getDoc(doc(getPublicCollection('agenda'),id)); if(snap.exists()){ const it=snap.data(); document.getElementById('agenda-id').value=snap.id; document.getElementById('agenda-titulo').value=it.title; document.getElementById('agenda-fecha').value=it.date; document.getElementById('agenda-estado').value=it.status; document.getElementById('agenda-documento').value=it.documento||''; document.getElementById('agenda-descripcion').value=it.description; try{ document.getElementById('form-agenda').scrollIntoView({behavior:'smooth',block:'start'});}catch{} } }catch{} });
+
+// Sustituciones CRUD
+formSustituciones?.addEventListener('submit',async e=>{
+	e.preventDefault();
+	if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
+	const sustituto=document.getElementById('sustitucion-sustituto').value.trim();
+	const curso=document.getElementById('sustitucion-curso').value.trim();
+	const asignatura=document.getElementById('sustitucion-asignatura').value.trim();
+	const hora=document.getElementById('sustitucion-hora').value.trim();
+	const instrucciones=document.getElementById('sustitucion-instrucciones').value.trim();
+	if(!sustituto||!curso||!asignatura||!hora){ return; }
+	try{
+		await addDoc(getPublicCollection('sustituciones'),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
+		formSustituciones.reset();
+	}catch{ alert('Error guardando sustitución'); }
+});
+listaSustituciones?.addEventListener('click',e=>{
+	if(e.target.classList.contains('eliminar')){
+		if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
+		const id=e.target.dataset.id;
+		showConfirmation('¿Eliminar sustitución?', async()=>{ await deleteDoc(doc(getPublicCollection('sustituciones'),id)); });
+	}
+});
 
 // Confirmación
 function showConfirmation(msg,cb){ document.getElementById('confirm-message').textContent=msg; modalConfirmacion.style.display='flex'; confirmationCallback=cb; }

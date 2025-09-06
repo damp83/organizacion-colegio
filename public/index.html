@@ -40,6 +40,7 @@
   <button id="btn-calendario">Calendario<span class="badge-dot"></span></button>
   <button id="btn-anuncios">Anuncios<span class="badge-dot"></span></button>
   <button id="btn-agenda">Agenda<span class="badge-dot"></span></button>
+    <button id="btn-sustituciones">Sustituciones<span class="badge-dot"></span></button>
     </div>
 
     <main>
@@ -114,6 +115,26 @@
         </form>
         <div id="lista-agenda" class="agenda-list">
           <p class="loading-message">Cargando reuniones...</p>
+        </div>
+      </section>
+
+      <!-- Sección de Sustituciones -->
+      <section id="seccion-sustituciones" class="seccion">
+        <h2>Gestión de Sustituciones</h2>
+        <form id="form-sustituciones" class="agenda-form" style="margin-bottom:18px;">
+          <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+            <input type="text" id="sustitucion-sustituto" placeholder="Maestro que sustituye" required>
+            <input type="text" id="sustitucion-curso" placeholder="Curso" required>
+            <input type="text" id="sustitucion-asignatura" placeholder="Asignatura" required>
+            <input type="text" id="sustitucion-hora" placeholder="Hora" required>
+          </div>
+          <textarea id="sustitucion-instrucciones" placeholder="Instrucciones para la sustitución" rows="4" style="margin-top:10px;"></textarea>
+          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-accion">Registrar Sustitución</button>
+          </div>
+        </form>
+        <div id="lista-sustituciones" class="agenda-list">
+          <p class="loading-message">No hay sustituciones registradas.</p>
         </div>
       </section>
     </main>
