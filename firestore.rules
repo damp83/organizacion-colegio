@@ -74,6 +74,11 @@ service cloud.firestore {
       return s is string && s.size() == 5 && s.matches('^([0-1][0-9]|2[0-3]):[0-5][0-9]$');
     }
 
+    function isHourRange(s) {
+      // Formato HH:MM-HH:MM 24h
+      return s is string && s.size() == 11 && s.matches('^([0-1][0-9]|2[0-3]):[0-5][0-9]-([0-1][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
     // Rutas públicas de la app
     match /artifacts/{appId}/public/data/{collection}/{docId} {
       allow read: if true; // público de solo lectura
@@ -143,8 +148,8 @@ service cloud.firestore {
   return isShortString(d.sustituto, 200) &&
          isShortString(d.curso, 200) &&
          isShortString(d.asignatura, 200) &&
-         // Permite formato HH:MM o una etiqueta corta (p.e. "3ª", "Recreo", "1-2") hasta 20 chars
-         ( (d.hora is string) && ( isHourString(d.hora) || isShortString(d.hora, 20) ) ) &&
+         // Permite ahora: rango HH:MM-HH:MM (preferido), o única hora HH:MM, o etiqueta corta <=20 (legacy)
+         ( (d.hora is string) && ( isHourRange(d.hora) || isHourString(d.hora) || isShortString(d.hora, 20) ) ) &&
          (d.instrucciones == null || isShortString(d.instrucciones, 4000));
       }
     }

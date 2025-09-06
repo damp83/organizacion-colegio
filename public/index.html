@@ -30,7 +30,6 @@
       <div class="user-info">Cargando usuario...</div>
       <div class="auth-actions">
         <button id="btn-login-google" class="btn-accion">Entrar con Google</button>
-        <button id="btn-login-ms" class="btn-accion">Entrar con Microsoft</button>
         <button id="btn-logout" class="btn-accion" style="display:none;">Cerrar sesión</button>
       </div>
     </header>
@@ -135,8 +134,24 @@
         </div>
         <form id="form-sustituciones" class="agenda-form" style="margin-bottom:18px;">
           <input type="hidden" id="sustitucion-id" />
-          <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+          <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
             <input type="text" id="sustitucion-sustituto" placeholder="Maestro que sustituye" required>
+            <select id="sustitucion-dia" required title="Día">
+              <option value="" disabled selected>Día</option>
+              <option value="Lunes">Lunes</option>
+              <option value="Martes">Martes</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Jueves">Jueves</option>
+              <option value="Viernes">Viernes</option>
+            </select>
+            <select id="sustitucion-sesion" required title="Sesión">
+              <option value="" disabled selected>Sesión</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
             <!-- Curso -->
             <select id="sustitucion-curso" required title="Curso">
               <option value="" disabled selected>Curso</option>
@@ -178,6 +193,7 @@
               <option value="Ciencias Sociales">Ciencias Sociales</option>
               <option value="Ciencias Naturales">Ciencias Naturales</option>
               <option value="Francés">Francés</option>
+              <option value="Otros Infantil">Otros Infantil</option>
               <option value="Música">Música</option>
             </select>
             <!-- Hora (intervalo) -->
@@ -196,8 +212,33 @@
             <button type="submit" class="btn-accion">Registrar Sustitución</button>
           </div>
         </form>
-        <div id="lista-sustituciones" class="agenda-list">
-          <p class="loading-message">No hay sustituciones registradas.</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0 6px; flex-wrap:wrap; gap:8px;">
+          <h3 style="margin:0; font-size:0.95rem;">Horario semanal de sustituciones</h3>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="btn-limpiar-semana-sust" class="btn-accion eliminar" style="background:#b91c1c;">Limpiar semana</button>
+          </div>
+        </div>
+        <div id="lista-sustituciones" class="agenda-list" style="padding:0; background:transparent;">
+          <div style="overflow-x:auto;">
+            <table id="tabla-sustituciones" style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+              <thead>
+                <tr>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Sesión</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Lunes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Martes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Miércoles</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Jueves</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Viernes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+          <div id="sustituciones-sin-slot" style="margin-top:12px;">
+            <!-- Listado para sustituciones sin día/sesión (legacy) -->
+          </div>
         </div>
       </section>
     </main>
@@ -277,6 +318,8 @@
         <span class="close-btn-doc">&times;</span>
       </div>
       <form id="form-documento">
+        <input type="hidden" id="documento-id" />
+        <input type="hidden" id="documento-has-file" value="0" />
         <div class="form-group">
           <label for="documento-titulo">Título:</label>
           <input type="text" id="documento-titulo" required>
@@ -284,6 +327,7 @@
         <div class="form-group">
           <label for="documento-archivo">Archivo:</label>
           <input type="file" id="documento-archivo" required>
+          <small id="documento-archivo-info" style="display:none; font-size:0.65rem; color:#374151;">(Se mantendrá el archivo existente si no seleccionas uno nuevo)</small>
         </div>
         <button type="submit" class="btn-accion">Subir Documento</button>
       </form>
@@ -294,10 +338,11 @@
   <div id="modal-confirmacion" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message" aria-hidden="true">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Confirmar Eliminación</h3>
+        <h3 id="confirm-title">Confirmar</h3>
         <span class="close-btn">&times;</span>
       </div>
       <p id="confirm-message">¿Estás seguro de que quieres eliminar este elemento?</p>
+      <p id="confirm-extra" style="display:none; font-size:0.7rem; color:#991b1b; margin-top:-4px;">Esta acción no se puede deshacer.</p>
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button id="btn-cancelar" class="btn-accion eliminar">Cancelar</button>
         <button id="btn-confirmar" class="btn-accion">Confirmar</button>
