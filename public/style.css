@@ -13,6 +13,47 @@ body {
 	padding-top: 50px;
 }
 
+/* --- Navegación móvil --- */
+.menu-toggle {
+	background: #1f2937;
+	border: 1px solid #374151;
+	border-radius: 8px;
+	padding: 8px 10px;
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	display: none;
+	cursor: pointer;
+	flex-direction: column;
+	gap: 4px;
+}
+.menu-toggle .bar { display:block; width:24px; height:3px; background:#fff; border-radius:2px; }
+.menu-toggle.open .bar:nth-child(1){ transform: translateY(6px) rotate(45deg); }
+.menu-toggle.open .bar:nth-child(2){ opacity:0; }
+.menu-toggle.open .bar:nth-child(3){ transform: translateY(-6px) rotate(-45deg); }
+
+@media (max-width: 860px) {
+	head er { padding-top:64px; }
+	.menu-toggle { display:flex; }
+	.nav-bar { flex-direction: column; align-items: stretch; gap:6px; padding:12px 16px; display:none; }
+	.nav-bar.open { display:flex; }
+	.nav-bar button { width:100%; text-align:left; }
+	.app-container { width:100%; border-radius:0; box-shadow:none; }
+	main { padding:24px 18px; }
+	h2 { font-size:1.5rem; }
+	.documentos-grid { grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); }
+}
+
+@media (max-width: 480px) {
+	header h1 { font-size:1.35rem; }
+	.subtitle { font-size:0.8rem; }
+	.btn-accion { padding:10px 14px; font-size:0.85rem; }
+	.anuncio-item { padding:14px; font-size:0.95rem; }
+	.calendar-nav { flex-wrap:wrap; gap:8px; }
+	.calendar-nav button { padding:8px 10px; }
+	.day-cell { min-height:110px; }
+}
+
 .app-container {
 	background-color: #ffffff;
 	border-radius: 16px;
@@ -109,7 +150,21 @@ header h1 {
 	cursor: pointer;
 	border-radius: 10px;
 	transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+	position: relative;
 }
+
+.nav-bar button .badge-dot {
+	position: absolute;
+	top: 6px;
+	right: 8px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #ef4444; /* rojo */
+	box-shadow: 0 0 0 2px rgba(255,255,255,0.9);
+	display: none;
+}
+.nav-bar button.has-unread .badge-dot { display: inline-block; }
 
 .nav-bar button:hover {
 	background-color: #374151; /* gray-700 */

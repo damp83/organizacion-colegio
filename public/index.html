@@ -22,6 +22,11 @@
           <p class="subtitle">Gestión del Claustro</p>
         </div>
       </div>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-secciones">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
       <div class="user-info">Cargando usuario...</div>
       <div class="auth-actions">
         <button id="btn-login-google" class="btn-accion">Entrar con Google</button>
@@ -30,11 +35,11 @@
       </div>
     </header>
 
-    <div class="nav-bar">
-      <button id="btn-documentos" class="active">Documentos</button>
-      <button id="btn-calendario">Calendario</button>
-      <button id="btn-anuncios">Anuncios</button>
-      <button id="btn-agenda">Agenda</button>
+    <div class="nav-bar" id="nav-secciones">
+  <button id="btn-documentos" class="active">Documentos<span class="badge-dot"></span></button>
+  <button id="btn-calendario">Calendario<span class="badge-dot"></span></button>
+  <button id="btn-anuncios">Anuncios<span class="badge-dot"></span></button>
+  <button id="btn-agenda">Agenda<span class="badge-dot"></span></button>
     </div>
 
     <main>

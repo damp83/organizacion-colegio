@@ -36,6 +36,23 @@ const userDisplay = document.querySelector('.user-info');
 const btnLogout = document.getElementById('btn-logout');
 const btnLoginGoogle = document.getElementById('btn-login-google');
 const btnLoginMs = document.getElementById('btn-login-ms');
+const menuToggle = document.getElementById('menu-toggle');
+const navBar = document.getElementById('nav-secciones');
+if (menuToggle && navBar) {
+	menuToggle.addEventListener('click', () => {
+		const open = navBar.classList.toggle('open');
+		menuToggle.classList.toggle('open', open);
+		menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+	});
+	document.addEventListener('click', (e) => {
+		if (!navBar.classList.contains('open')) return;
+		if (e.target === menuToggle || menuToggle.contains(e.target)) return;
+		if (navBar.contains(e.target)) return;
+		navBar.classList.remove('open');
+		menuToggle.classList.remove('open');
+		menuToggle.setAttribute('aria-expanded','false');
+	});
+}
 
 // Calendario
 const calendarGrid = document.getElementById('calendar-grid');
@@ -319,8 +336,97 @@ function cambiarSeccion(targetId) {
 	sections.forEach(sec => sec.classList.remove('active'));
 	const btn = document.getElementById(`btn-${targetId}`);
 	const sec = document.getElementById(`seccion-${targetId}`);
-	if (btn) btn.classList.add('active');
+	if (btn) { btn.classList.add('active'); btn.classList.remove('has-unread'); }
 	if (sec) sec.classList.add('active');
+	// Persistencia de lectura
+	if (latestMax[targetId] && latestMax[targetId] > (lastSeen[targetId]||0)) {
+		lastSeen[targetId] = latestMax[targetId];
+		scheduleSaveLastSeen();
+	}
+	// Cerrar menú móvil si está abierto
+	if (navBar && navBar.classList.contains('open')) {
+		navBar.classList.remove('open');
+		if (menuToggle) { menuToggle.classList.remove('open'); menuToggle.setAttribute('aria-expanded','false'); }
+	}
+}
+
+// --- Notificaciones simples ---
+// Persistencia de indicadores (lastSeen) en localStorage
+let lastSeen = { anuncios: 0, agenda: 0, actividades: 0 };
+try {
+	const storedLS = localStorage.getItem('lastSeenIndicators');
+	if (storedLS) {
+		const parsed = JSON.parse(storedLS);
+		if (parsed && typeof parsed === 'object') {
+			lastSeen = { ...lastSeen, ...parsed };
+		}
+	}
+} catch(_) {}
+function saveLastSeen(){
+	try { localStorage.setItem('lastSeenIndicators', JSON.stringify(lastSeen)); } catch(_) {}
+}
+// Guardar periódicamente por seguridad (en caso de múltiples cambios rápidos)
+let saveLastSeenDebounce = null;
+function scheduleSaveLastSeen(){
+	if (saveLastSeenDebounce) cancelAnimationFrame(saveLastSeenDebounce);
+	saveLastSeenDebounce = requestAnimationFrame(saveLastSeen);
+}
+// Último timestamp máximo observado por colección (para marcar leído al entrar)
+const latestMax = { anuncios: 0, agenda: 0, actividades: 0 };
+function marcarNuevos(tipo, docs) {
+	try {
+		const maxTs = docs.reduce((m,d)=> d.timestamp && typeof d.timestamp === 'number' ? Math.max(m,d.timestamp) : m, 0);
+		latestMax[tipo] = Math.max(latestMax[tipo]||0, maxTs);
+		if (!maxTs) return;
+			if (maxTs > (lastSeen[tipo]||0)) {
+			// si sección no visible marcar
+			const btn = document.getElementById(`btn-${tipo}`);
+			const secVisible = document.getElementById(`seccion-${tipo}`)?.classList.contains('active');
+			if (btn && !secVisible) btn.classList.add('has-unread');
+			lastSeen[tipo] = maxTs;
+				let msg = 'Nuevo contenido';
+				if (tipo === 'anuncios') msg = 'Nuevo anuncio';
+				else if (tipo === 'agenda') msg = 'Cambio en agenda';
+				else if (tipo === 'actividades') msg = 'Nueva actividad / cambio en calendario';
+				mostrarToast(msg);
+			scheduleSaveLastSeen();
+		}
+	} catch(_){}
+}
+
+let toastContainer = null;
+function ensureToastContainer(){
+	if (!toastContainer){
+		toastContainer = document.createElement('div');
+		toastContainer.style.position='fixed';
+		toastContainer.style.top='15px';
+		toastContainer.style.right='15px';
+		toastContainer.style.zIndex='9999';
+		toastContainer.style.display='flex';
+		toastContainer.style.flexDirection='column';
+		toastContainer.style.gap='8px';
+		document.body.appendChild(toastContainer);
+	}
+}
+function mostrarToast(msg){
+	ensureToastContainer();
+	const el = document.createElement('div');
+	el.textContent = msg;
+	el.style.background = '#111827';
+	el.style.color = '#fff';
+	el.style.padding = '10px 14px';
+	el.style.fontSize='0.8rem';
+	el.style.borderRadius='8px';
+	el.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)';
+	el.style.opacity='0';
+	el.style.transform='translateY(-6px)';
+	el.style.transition='all 0.35s ease';
+	toastContainer.appendChild(el);
+	requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateY(0)'; });
+	setTimeout(()=>{
+		el.style.opacity='0'; el.style.transform='translateY(-6px)';
+		setTimeout(()=> el.remove(), 400);
+	}, 4000);
 }
 
 function renderizarDocumentos(documentos) {
@@ -629,11 +735,13 @@ function setupFirestoreListeners() {
 		});
 		anuncios.sort((a, b) => a.timestamp - b.timestamp);
 		renderizarAnuncios(anuncios);
+		marcarNuevos('anuncios', anuncios);
 	});
 
 	// Calendario
 	onSnapshot(getPublicCollection('actividades'), (querySnapshot) => {
 		actividadesMapCache = new Map();
+		const allActs = [];
 		querySnapshot.forEach(docSnap => {
 			const data = docSnap.data();
 			const dateKey = data.date;
@@ -641,6 +749,7 @@ function setupFirestoreListeners() {
 				actividadesMapCache.set(dateKey, []);
 			}
 			actividadesMapCache.get(dateKey).push({ id: docSnap.id, ...data });
+			allActs.push({ id: docSnap.id, ...data });
 		});
 		// Reasignar actividades a los días actualmente visibles
 		document.querySelectorAll('.day-cell').forEach(cell => {
@@ -649,6 +758,7 @@ function setupFirestoreListeners() {
 			}
 		});
 		renderizarActividades();
+		marcarNuevos('actividades', allActs);
 	});
 
 	// Agenda
@@ -658,6 +768,7 @@ function setupFirestoreListeners() {
 			agenda.push({ id: doc.id, ...doc.data() });
 		});
 		renderizarAgenda(agenda);
+		marcarNuevos('agenda', agenda);
 	});
 }
 
