@@ -246,14 +246,18 @@ function renderizarDocumentos(documentos) {
 			downloadBtn.textContent = 'Descargar';
 			downloadBtn.addEventListener('click', async () => {
 				try {
+					console.log('[docs] Intentando descargar', d.storagePath, d.fileName);
 					const refFile = storageRef(storage, d.storagePath);
 					const url = await getDownloadURL(refFile);
+					console.log('[docs] URL obtenida', url);
 					const a = document.createElement('a');
 					a.href = url;
 					a.download = d.fileName || d.nombre || 'documento';
+					a.rel = 'noopener';
+					a.target = '_blank'; // fallback si el navegador ignora download
 					document.body.appendChild(a);
 					a.click();
-					a.remove();
+					setTimeout(() => a.remove(), 0);
 				} catch (err) {
 					alert('No se pudo descargar: ' + (err?.code || err?.message));
 				}
