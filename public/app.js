@@ -1066,6 +1066,10 @@ if (btnLoginGoogle) {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-closed-by-user')) {
+					console.info('[auth] Popup Google cerrado por el usuario antes de completar.');
+					return;
+				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'google');
 					await signInWithRedirect(auth, provider);
@@ -1074,7 +1078,11 @@ if (btnLoginGoogle) {
 				}
 			}
 		} catch (e) {
-			console.error('Error al iniciar con Google', e);
+			if ((e && e.code && String(e.code).includes('popup-closed-by-user'))) {
+				// Silenciar error ya gestionado arriba
+				return;
+			}
+			console.error('Error al iniciar con Google', e?.code || e);
 		}
 	});
 }
@@ -1090,6 +1098,10 @@ if (btnLoginMs) {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				if (code.includes('popup-closed-by-user')) {
+					console.info('[auth] Popup Microsoft cerrado por el usuario.');
+					return;
+				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 					await signInWithRedirect(auth, provider);
@@ -1098,7 +1110,8 @@ if (btnLoginMs) {
 				}
 			}
 		} catch (e) {
-			console.error('Error al iniciar con Microsoft', e);
+			if ((e && e.code && String(e.code).includes('popup-closed-by-user'))) return;
+			console.error('Error al iniciar con Microsoft', e?.code || e);
 		}
 	});
 }
