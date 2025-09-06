@@ -314,111 +314,57 @@ async function seedDemoDataIfRequested() {
 				timestamp: now,
 				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
 			});
-		}
-		if (empties.includes('anuncios')) {
-			await addDoc(getPublicCollection('anuncios'), {
-				texto: 'Claustro general el próximo viernes a las 12:00.',
-				timestamp: now,
-				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
-			});
-		}
-		if (empties.includes('actividades')) {
-			const today = new Date();
-			const y = today.getFullYear();
-			const m = String(today.getMonth() + 1).padStart(2, '0');
-			const d = String(Math.min(28, today.getDate())).padStart(2, '0');
-			await addDoc(getPublicCollection('actividades'), {
-				title: 'Reunión de ciclo',
-				date: `${y}-${m}-${d}`,
-				timestamp: now,
-				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
-			});
-		}
-		if (empties.includes('agenda')) {
-			const today = new Date();
-			const y = today.getFullYear();
-			const m = String(today.getMonth() + 1).padStart(2, '0');
-			const d = String(Math.min(28, today.getDate())).padStart(2, '0');
-			await addDoc(getPublicCollection('agenda'), {
-				title: 'Seguimiento Programación Didáctica',
-				date: `${y}-${m}-${d}`,
-				status: 'Programada',
-				documento: '',
-				description: 'Revisión de objetivos y acuerdos del trimestre.',
-				timestamp: now,
-				createdBy: (userId || (auth && auth.currentUser ? auth.currentUser.uid : null))
-			});
-		}
-		console.log('Seed: datos de ejemplo insertados.');
-	} catch (err) {
-		console.error('Seed: error insertando datos de ejemplo:', err);
-	}
-}
 
-// --- Funciones de UI/Renderizado ---
-function cambiarSeccion(targetId) {
-	navButtons.forEach(btn => btn.classList.remove('active'));
-	sections.forEach(sec => sec.classList.remove('active'));
-	const btn = document.getElementById(`btn-${targetId}`);
-	const sec = document.getElementById(`seccion-${targetId}`);
-	if (btn) { btn.classList.add('active'); btn.classList.remove('has-unread'); }
-	if (sec) sec.classList.add('active');
-	// Persistencia de lectura
-	if (latestMax[targetId] && latestMax[targetId] > (lastSeen[targetId]||0)) {
-		lastSeen[targetId] = latestMax[targetId];
-		scheduleSaveLastSeen();
-	}
-	// Cerrar menú móvil si está abierto
-	if (navBar && navBar.classList.contains('open')) {
-		navBar.classList.remove('open');
-		if (menuToggle) { menuToggle.classList.remove('open'); menuToggle.setAttribute('aria-expanded','false'); }
-	}
-}
-
-// --- Notificaciones simples ---
-// Persistencia de indicadores (lastSeen) en localStorage
-let lastSeen = { anuncios: 0, agenda: 0, actividades: 0 };
-try {
-	const storedLS = localStorage.getItem('lastSeenIndicators');
-	if (storedLS) {
-		const parsed = JSON.parse(storedLS);
-		if (parsed && typeof parsed === 'object') {
-			lastSeen = { ...lastSeen, ...parsed };
-		}
-	}
-} catch(_) {}
-function saveLastSeen(){
-	try { localStorage.setItem('lastSeenIndicators', JSON.stringify(lastSeen)); } catch(_) {}
-}
-// Guardar periódicamente por seguridad (en caso de múltiples cambios rápidos)
-let saveLastSeenDebounce = null;
-function scheduleSaveLastSeen(){
-	if (saveLastSeenDebounce) cancelAnimationFrame(saveLastSeenDebounce);
-	saveLastSeenDebounce = requestAnimationFrame(saveLastSeen);
-}
-// Último timestamp máximo observado por colección (para marcar leído al entrar)
-const latestMax = { anuncios: 0, agenda: 0, actividades: 0 };
-function marcarNuevos(tipo, docs) {
-	try {
-		const maxTs = docs.reduce((m,d)=> d.timestamp && typeof d.timestamp === 'number' ? Math.max(m,d.timestamp) : m, 0);
-		latestMax[tipo] = Math.max(latestMax[tipo]||0, maxTs);
-		if (!maxTs) return;
-			if (maxTs > (lastSeen[tipo]||0)) {
-			// si sección no visible marcar
-			const btn = document.getElementById(`btn-${tipo}`);
-			const secVisible = document.getElementById(`seccion-${tipo}`)?.classList.contains('active');
-			if (btn && !secVisible) btn.classList.add('has-unread');
-			lastSeen[tipo] = maxTs;
-				let msg = 'Nuevo contenido';
-				if (tipo === 'anuncios') msg = 'Nuevo anuncio';
-				else if (tipo === 'agenda') msg = 'Cambio en agenda';
-				else if (tipo === 'actividades') msg = 'Nueva actividad / cambio en calendario';
-				mostrarToast(msg);
-			scheduleSaveLastSeen();
-		}
-	} catch(_){}
-}
-
+			onAuthStateChanged(auth, async (user) => {
+				// Limpiar marca de redirect si no llegó usuario tras comprobar
+				if (!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) {
+					localStorage.removeItem(LS_REDIRECT_MARK);
+				}
+				if (user) {
+					userId = user.uid;
+					try {
+						const res = await getIdTokenResult(user, true);
+						isAdmin = !!(res && res.claims && res.claims.admin);
+					} catch(_) { isAdmin = false; }
+					canWrite = computeCanWrite(user, isAdmin);
+					const emailShown = (user.email || '').toLowerCase() || '(sin email)';
+					userDisplay.textContent = `${emailShown}${isAdmin ? ' (admin)' : (!canWrite ? ' (solo lectura)' : '')}`;
+					try {
+						btnSubirDocumento.style.display = canWrite ? 'inline-flex' : 'none';
+						formAnuncio.querySelector('button[type="submit"]').disabled = !canWrite;
+						formAgenda.querySelector('button[type="submit"]').disabled = !canWrite;
+					} catch(_) {}
+					if (btnLogout) btnLogout.style.display = 'inline-block';
+					if (btnLoginGoogle) btnLoginGoogle.style.display = user.isAnonymous ? 'inline-block' : 'none';
+					if (btnLoginMs) btnLoginMs.style.display = user.isAnonymous ? 'inline-block' : 'none';
+					setupFirestoreListeners();
+					renderizarCalendario();
+					seedDemoDataIfRequested();
+					didManualLogout = false;
+					return;
+				}
+				// Sin usuario
+				if (didManualLogout) {
+					userDisplay.textContent = 'No conectado';
+					if (btnLogout) btnLogout.style.display = 'none';
+					if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+					if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+					return;
+				}
+				if (!localStorage.getItem(LS_REDIRECT_MARK)) {
+					try { await signInAnonymously(auth); } catch(_) {}
+				}
+				userDisplay.textContent = 'Usuario anónimo';
+				canWrite = false;
+				try {
+					btnSubirDocumento.style.display = 'none';
+					formAnuncio.querySelector('button[type="submit"]').disabled = true;
+					formAgenda.querySelector('button[type="submit"]').disabled = true;
+				} catch(_) {}
+				if (btnLogout) btnLogout.style.display = 'none';
+				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+			});
 let toastContainer = null;
 function ensureToastContainer(){
 	if (!toastContainer){
@@ -865,31 +811,16 @@ async function initializeAppClient() {
     
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
-	try { await setPersistence(auth, browserLocalPersistence); console.log('[auth] Persistence local establecida'); } catch(e){ console.warn('[auth] No se pudo fijar persistence', e); }
-	// Debug entorno auth
-	try {
-		console.log('[auth][debug] href=', location.href, 'origin=', location.origin, 'crossOriginIsolated=', window.crossOriginIsolated);
-		console.log('[auth][debug] userAgent=', navigator.userAgent);
-	} catch(_) {}
+	try { await setPersistence(auth, browserLocalPersistence); } catch(e){ console.warn('[auth] No se pudo fijar persistence', e); }
 	db = getFirestore(app);
 	// storage eliminado
 
 	// Completar flujos de login por redirección (si los hay)
 	try {
 		const redirectRes = await getRedirectResult(auth);
-		if (redirectRes) {
-			console.log('[auth] Resultado redirect:', redirectRes?.user?.uid, redirectRes?.providerId, redirectRes?.user?.email);
-			localStorage.removeItem(LS_REDIRECT_MARK);
-		} else {
-			console.log('[auth] No hay resultado de redirect pendiente');
-		}
+		if (redirectRes) localStorage.removeItem(LS_REDIRECT_MARK);
 		lastRedirectResultChecked = true;
-	} catch (e) {
-		lastRedirectError = e;
-		const code = (e && e.code) ? String(e.code) : '';
-		const msg = (e && e.message) ? String(e.message) : '';
-		console.warn('Redirect login error:', code, msg);
-	}
+	} catch (e) { lastRedirectError = e; }
 
 	// Conectar a emuladores si está activado o si estamos en localhost por defecto
 	const useEmulators = (typeof window !== 'undefined' && typeof window.__use_emulators !== 'undefined')
@@ -947,17 +878,11 @@ async function initializeAppClient() {
 						try {
 							triedPopupFallback = true;
 							console.log('[auth] Intentando fallback popup Google');
-							const provider = new GoogleAuthProvider();
-							provider.setCustomParameters({ prompt: 'select_account' });
-							await signInWithPopup(auth, provider);
-							return; // esperar siguiente onAuthStateChanged
-						} catch (err) {
-							console.warn('[auth] Fallback popup Google falló:', err?.code, err?.message);
-						}
-					}
-					if (lastLoginAttempt.provider === 'microsoft') {
-						try {
-							triedPopupFallback = true;
+							onAuthStateChanged(auth, async (user) => {
+								// Limpiar marca de redirect huérfana
+								if (!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) {
+									localStorage.removeItem(LS_REDIRECT_MARK);
+								}
 							console.log('[auth] Intentando fallback popup Microsoft');
 							const provider = new OAuthProvider('microsoft.com');
 							provider.setCustomParameters({ prompt: 'select_account' });
@@ -974,92 +899,27 @@ async function initializeAppClient() {
 			const stillPending = localStorage.getItem(LS_REDIRECT_MARK);
 			const recentLogin = lastLoginAttempt && (Date.now() - lastLoginAttempt.ts < 12000);
 			if (stillPending || recentLogin) {
-				console.log('[auth] Esperando antes de crear sesión anónima (redirect/login reciente pendiente)...');
-				setTimeout(async () => {
-					if (!auth.currentUser) {
+									if (btnLoginGoogle) btnLoginGoogle.style.display = user.isAnonymous ? 'inline-block' : 'none';
+									if (btnLoginMs) btnLoginMs.style.display = user.isAnonymous ? 'inline-block' : 'none';
 						console.log('[auth] No llegó usuario tras espera. Procediendo a sesión anónima.');
 						try { await signInAnonymously(auth); } catch(e){ console.warn('[auth] Falló signInAnonymously (delay):', e); }
 					}
 				}, 1800);
-				return;
-			}
-			// Si el usuario cerró sesión manualmente, no reautenticar automáticamente
-			if (didManualLogout) {
-				userId = null;
-				isAdmin = false;
-				userDisplay.textContent = "No conectado";
-				if (btnLogout) btnLogout.style.display = 'none';
-				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
-				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
-				return;
-			}
-
-			userDisplay.textContent = "Usuario anónimo";
-			canWrite = false;
-			try {
-				btnSubirDocumento.style.display = 'none';
-				formAnuncio.querySelector('button[type="submit"]').disabled = true;
-				formAgenda.querySelector('button[type="submit"]').disabled = true;
-			} catch (_) {}
-			if (btnLogout) btnLogout.style.display = 'none';
-			if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
-			if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
-			// Si hubo error al redirigir en login, no fuerces anónimo y muestra un aviso
-			if (lastRedirectError) {
-				const code = (lastRedirectError.code || '').toString();
-				if (code.includes('operation-not-allowed')) {
-					try { alert('El proveedor no está habilitado en Firebase Auth. Habilítalo en la consola.'); } catch(_){}
-				} else if (code.includes('unauthorized-domain')) {
-					try { alert('Dominio no autorizado en Firebase Auth. Añade tu dominio en Authentication > Settings > Authorized domains.'); } catch(_){}
 				} else {
-					try { alert('No se pudo completar el inicio de sesión. Vuelve a intentarlo o usa otro proveedor.'); } catch(_){}
-				}
-				return;
-			}
-			// Desactivamos signInAnonymously temporalmente para depurar login (evita confusión de estados)
-			console.log('[auth][debug] No user y no pending redirect: NO se crea anónimo (debug mode).');
-		}
-	});
-}
-
-// Logout handler
-if (btnLogout) {
-	btnLogout.addEventListener('click', async () => {
-		try {
-			didManualLogout = true;
-			await signOut(auth);
-		} catch (e) {
-			console.error('Error al cerrar sesión', e);
-		}
-	});
-}
-
-if (btnLoginGoogle) {
-	btnLoginGoogle.addEventListener('click', async () => {
-		if (btnLoginGoogle.disabled) return;
-		console.log('[auth][google] click');
-		didManualLogout = false;
-		const provider = new GoogleAuthProvider();
-		provider.setCustomParameters({ prompt: 'select_account' });
-		lastLoginAttempt = { provider: 'google', ts: Date.now() };
-		try {
-			if (AUTH_MODE === 'popup') {
-				await signInWithPopup(auth, provider);
-				console.log('[auth][google] popup lanzado');
-			} else {
-				localStorage.setItem(LS_REDIRECT_MARK, 'google');
-				await signInWithRedirect(auth, provider);
-			}
-		} catch(e) {
-			const code = e?.code || '';
-			console.warn('[auth][google] popup error', code);
-			if (code.includes('popup-blocked') || code.includes('popup-closed-by-user')) {
-				// intentar redirect
-				try {
-					btnLoginGoogle.disabled = true; btnLoginGoogle.textContent='Redirigiendo...';
-					localStorage.setItem(LS_REDIRECT_MARK, 'google');
-					await signInWithRedirect(auth, provider);
-					return;
+									// Si el usuario no existe y no se ha hecho logout manual, iniciar anónimo (salvo redirect pendiente)
+									if (!didManualLogout && !localStorage.getItem(LS_REDIRECT_MARK)) {
+										try { await signInAnonymously(auth); } catch(_) {}
+									}
+									userDisplay.textContent = "Usuario anónimo";
+									canWrite = false;
+									try {
+										btnSubirDocumento.style.display = 'none';
+										formAnuncio.querySelector('button[type="submit"]').disabled = true;
+										formAgenda.querySelector('button[type="submit"]').disabled = true;
+									} catch (_) {}
+									if (btnLogout) btnLogout.style.display = 'none';
+									if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
+									if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
 				} catch (er2) {
 					console.error('[auth][google] fallback redirect también falló', er2?.code);
 				}
