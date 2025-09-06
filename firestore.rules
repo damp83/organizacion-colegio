@@ -69,6 +69,11 @@ service cloud.firestore {
       return s is string && s.size() <= max;
     }
 
+    function isHourString(s) {
+      // Formato HH:MM 24h
+      return s is string && s.size() == 5 && s.matches('^([0-1][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
     // Rutas públicas de la app
     match /artifacts/{appId}/public/data/{collection}/{docId} {
       allow read: if true; // público de solo lectura
@@ -111,7 +116,7 @@ service cloud.firestore {
       }
 
       function validActividades(d) {
-        return isShortString(d.title, 200) && isIsoDate(d.date);
+  return isShortString(d.title, 200) && isIsoDate(d.date) && (d.time == null || isHourString(d.time));
       }
 
       function validAgenda(d) {

@@ -357,8 +357,10 @@ function renderizarActividades() {
 		activities.forEach(act => {
 			const activityItem = document.createElement('div');
 			activityItem.className = 'activity-item';
+			activityItem.dataset.id = act.id;
 			const titleSpan = document.createElement('span');
-			titleSpan.textContent = act.title || '';
+			const timeLabel = act.time ? ` (${act.time})` : '';
+			titleSpan.textContent = (act.title || '') + timeLabel;
 			activityItem.appendChild(titleSpan);
 			const canManage = canWrite && (isAdmin || (act && act.createdBy && act.createdBy === userId));
 			if (canManage) {
@@ -564,9 +566,11 @@ function agregarFormularioActividad(cell) {
 	form.className = 'actividad-form';
 	form.innerHTML = `
 		<input type="text" class="input-activity" placeholder="Nueva actividad..." required>
+		<input type="time" class="input-time" placeholder="Hora opcional" style="font-size:0.65rem; padding:2px 4px;">
 	`;
 	cell.appendChild(form);
-	const input = form.querySelector('input');
+	const input = form.querySelector('input.input-activity');
+	const inputTime = form.querySelector('input.input-time');
 	input.focus();
 
 	form.addEventListener('submit', async (e) => {
@@ -577,6 +581,7 @@ function agregarFormularioActividad(cell) {
 		await addDoc(getPublicCollection('actividades'), {
 			title: titulo,
 			date: date,
+			time: (inputTime && inputTime.value) ? inputTime.value : null,
 			timestamp: Date.now(),
 			createdBy: userId || null
 		});
@@ -829,6 +834,73 @@ calendarGrid.addEventListener('click', (e) => {
 			await deleteDoc(doc(getPublicCollection('actividades'), activityId));
 		});
 	}
+	// Edición de actividad al hacer clic sobre ella (no en botón eliminar)
+	const clickedActivity = e.target.closest('.activity-item');
+	if (clickedActivity && !e.target.classList.contains('delete-btn')) {
+		const actId = clickedActivity.dataset.id;
+		// Buscar datos en cache
+		let actData = null;
+		const dateKey = cell ? cell.dataset.date : null;
+		if (dateKey && actividadesMapCache.has(dateKey)) {
+			actData = (actividadesMapCache.get(dateKey) || []).find(a => a.id === actId) || null;
+		}
+		if (!actData) return;
+		const canManage = canWrite && (isAdmin || (actData.createdBy && actData.createdBy === userId));
+		if (!canManage) return;
+		// Reemplazar contenido por formulario inline
+		if (clickedActivity.querySelector('form')) return; // ya en edición
+		const currentTitle = actData.title || '';
+		const currentTime = actData.time || '';
+		clickedActivity.innerHTML = '';
+		const form = document.createElement('form');
+		form.style.display = 'flex';
+		form.style.gap = '4px';
+		form.style.width = '100%';
+		form.innerHTML = `
+			<input type="text" value="${currentTitle.replace(/"/g,'&quot;')}" style="flex:1; min-width:0; font-size:0.75rem; padding:2px 4px;" required />
+			<input type="time" value="${currentTime}" style="width:70px; font-size:0.65rem; padding:2px 4px;" />
+			<button type="submit" class="btn-accion editar" style="margin:0; padding:4px 8px; font-size:0.7rem;">Guardar</button>
+			<button type="button" class="btn-accion eliminar" style="margin:0; padding:4px 8px; font-size:0.7rem;">X</button>
+		`;
+		clickedActivity.appendChild(form);
+		const input = form.querySelector('input[type="text"]');
+		const inputHora = form.querySelector('input[type="time"]');
+		input.focus();
+		form.addEventListener('submit', async (ev) => {
+			ev.preventDefault();
+			const nuevoTitulo = input.value.trim();
+			const nuevaHora = inputHora && inputHora.value ? inputHora.value : null;
+			if (!nuevoTitulo) return;
+			try {
+				await updateDoc(doc(getPublicCollection('actividades'), actId), { title: nuevoTitulo, time: nuevaHora, timestamp: Date.now() });
+			} catch(err) {
+				console.warn('Error actualizando actividad', err);
+				alert('No se pudo actualizar.');
+			}
+		});
+		form.querySelector('button.btn-accion.eliminar').addEventListener('click', () => {
+			// Cancelar edición: forzar re-render rápido usando cache local
+			renderizarActividades();
+		});
+	}
+});
+
+// Doble clic fuerza modo edición (útil si en el futuro se cambia el clic simple)
+calendarGrid.addEventListener('dblclick', (e) => {
+	const activityEl = e.target.closest('.activity-item');
+	if (!activityEl) return;
+	const activityId = activityEl.dataset.id;
+	// localizar fecha (celda) y actividad
+	const cell = e.target.closest('.day-cell');
+	if (!cell) return;
+	const dateKey = cell.dataset.date;
+	const list = actividadesMapCache.get(dateKey) || [];
+	const actData = list.find(a => a.id === activityId);
+	if (!actData) return;
+	const canManage = canWrite && (isAdmin || (actData.createdBy && actData.createdBy === userId));
+	if (!canManage) return;
+	// Simular clic para reutilizar lógica existente
+	activityEl.click();
 });
 
 prevMonthBtn.addEventListener('click', () => {
@@ -994,6 +1066,35 @@ listaAgenda.addEventListener('click', async (e) => {
 		} catch (error) {
 			console.error("Error al obtener el documento para edición:", error);
 		}
+	}
+});
+
+// Doble clic en item de agenda para editar (sin necesidad del botón)
+listaAgenda.addEventListener('dblclick', async (e) => {
+	const container = e.target.closest('.agenda-item');
+	if (!container) return;
+	// Obtener id buscando en acciones (botón editar) si existe
+	let id = null;
+	const editBtn = container.querySelector('.btn-accion.editar');
+	if (editBtn) id = editBtn.dataset.id;
+	// fallback: intentar localizar por data-id futuro (si se añade)
+	if (!id) return;
+	try {
+		const docRef = doc(getPublicCollection('agenda'), id);
+		const docSnap = await getDoc(docRef);
+		if (docSnap.exists()) {
+			const item = docSnap.data();
+			document.getElementById('agenda-id').value = docSnap.id;
+			document.getElementById('agenda-titulo').value = item.title;
+			document.getElementById('agenda-fecha').value = item.date;
+			document.getElementById('agenda-estado').value = item.status;
+			document.getElementById('agenda-documento').value = item.documento || '';
+			document.getElementById('agenda-descripcion').value = item.description;
+			// Scroll a formulario para visibilidad
+			try { document.getElementById('form-agenda').scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){ }
+		}
+	} catch(err) {
+		console.warn('No se pudo cargar la reunión para edición', err);
 	}
 });
 
