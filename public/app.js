@@ -903,6 +903,7 @@ async function initializeAppClient() {
 	}
 
 	onAuthStateChanged(auth, async (user) => {
+		console.log('[auth][state] onAuthStateChanged user=', user ? { uid:user.uid, email:user.email, isAnon:user.isAnonymous } : null);
 		// Si no hay usuario todavía y había un intento de redirect previo sin resultado, alerta diagnóstica
 		if (!user && lastRedirectResultChecked) {
 			const pending = localStorage.getItem(LS_REDIRECT_MARK);
@@ -1014,16 +1015,8 @@ async function initializeAppClient() {
 				}
 				return;
 			}
-			if (initialAuthToken) {
-				try {
-					await signInWithCustomToken(auth, initialAuthToken);
-				} catch (error) {
-					console.error("Error al iniciar sesión con token personalizado:", error);
-					await signInAnonymously(auth);
-				}
-			} else {
-				try { await signInAnonymously(auth); } catch(e){ console.warn('[auth] Falló signInAnonymously:', e); }
-			}
+			// Desactivamos signInAnonymously temporalmente para depurar login (evita confusión de estados)
+			console.log('[auth][debug] No user y no pending redirect: NO se crea anónimo (debug mode).');
 		}
 	});
 }
