@@ -116,7 +116,17 @@ service cloud.firestore {
       }
 
       function validActividades(d) {
-  return isShortString(d.title, 200) && isIsoDate(d.date) && (d.time == null || isHourString(d.time));
+  return isShortString(d.title, 200) &&
+         isIsoDate(d.date) &&
+         (d.time == null || isHourString(d.time)) &&
+         // tipo sólo dos valores permitidos
+         (d.tipo in ['dentro','salida']) &&
+         // duración opcional 0..1440
+         (d.duration == null || (d.duration is int && d.duration >= 0 && d.duration <= 1440)) &&
+         // curso: lista obligatoria (al menos 1) tamaño razonable <= 30
+         (d.curso is list && d.curso.size() >= 1 && d.curso.size() <= 30) &&
+         // personal opcional: lista limitada
+         (d.personal == null || (d.personal is list && d.personal.size() <= 60));
       }
 
       function validAgenda(d) {
