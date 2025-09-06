@@ -134,7 +134,6 @@ let lastRedirectResultChecked = false;
 let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
 let triedPopupFallback = false;
 const LS_REDIRECT_MARK = 'pendingRedirectProvider';
-let attemptedAnonAfterLogout = false; // evita bucles al intentar sesión anónima tras logout manual
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
 	"anaadela.cordoba@murciaeduca.es",
@@ -956,21 +955,7 @@ async function initializeAppClient() {
 				if (btnLogout) btnLogout.style.display = 'none';
 				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
 				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
-				// Intentar SOLO UNA VEZ sesión anónima (si está habilitada) para mantener listeners; si falla no reintentar
-				if (!attemptedAnonAfterLogout) {
-					attemptedAnonAfterLogout = true;
-					try {
-						await signInAnonymously(auth);
-						console.log('[auth] Sesión anónima creada tras logout manual (una sola vez).');
-					} catch(e){
-						const code = e?.code || '';
-						if (String(code).includes('operation-not-allowed')) {
-							console.warn('[auth] Anonymous auth deshabilitado. No se reintentará.');
-						} else {
-							console.warn('[auth] Falló sesión anónima post-logout:', code);
-						}
-					}
-				}
+				// No forzamos sesión anónima aquí para evitar estados confusos: usuario decide proveedor.
 				return;
 			}
 
