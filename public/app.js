@@ -231,7 +231,7 @@ function renderizarDocumentos(documentos) {
 		const strong1 = document.createElement('strong');
 		strong1.textContent = 'Archivo:';
 		p1.appendChild(strong1);
-		p1.append(' ' + (d.archivo || ''));
+		p1.append(' ' + (d.fileName || d.archivo || ''));
 		const p2 = document.createElement('p');
 		const strong2 = document.createElement('strong');
 		strong2.textContent = 'Fecha de subida:';
@@ -239,7 +239,7 @@ function renderizarDocumentos(documentos) {
 		p2.append(' ' + (d.fecha || ''));
 		const elements = [h3, p1, p2];
 		// Botón de descarga si el documento tiene path de storage
-		if (canWrite && d.storagePath && d.fileName) {
+		if (canWrite && d.storagePath && (d.fileName || d.archivo)) {
 			const downloadBtn = document.createElement('button');
 			downloadBtn.className = 'btn-accion descargar';
 			downloadBtn.type = 'button';
@@ -252,7 +252,7 @@ function renderizarDocumentos(documentos) {
 					console.log('[docs] URL obtenida', url);
 					const a = document.createElement('a');
 					a.href = url;
-					a.download = d.fileName || d.nombre || 'documento';
+					a.download = d.fileName || d.archivo || d.nombre || 'documento';
 					a.rel = 'noopener';
 					a.target = '_blank'; // fallback si el navegador ignora download
 					document.body.appendChild(a);
@@ -805,6 +805,7 @@ formDocumento.addEventListener('submit', async (e) => {
 		await uploadBytes(refFile, archivo, { contentType: archivo.type || 'application/octet-stream' });
 		await addDoc(getPublicCollection('documentos'), {
 			nombre: titulo,
+			archivo: archivo.name, // Campo legacy para reglas y compatibilidad
 			fileName: archivo.name,
 			storagePath: path,
 			fecha: new Date().toLocaleDateString('es-ES'),
