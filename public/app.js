@@ -75,12 +75,281 @@ const modalActividadDetalle=document.getElementById('modal-actividad-detalle');
 const btnDetalleCerrar=document.getElementById('actividad-detalle-cerrar');
 const btnDetalleEditar=document.getElementById('actividad-detalle-editar');
 const detalleBody=document.getElementById('actividad-detalle-body');
+// === Tareas (Gestión) ===
+const formTarea=document.getElementById('form-tarea');
+const listaTareasPersonales=document.getElementById('lista-tareas-personales');
+const listaTareasCompartidas=document.getElementById('lista-tareas-compartidas');
+const inputTareaTitulo=document.getElementById('tarea-titulo');
+const selectTareaTitulo=document.getElementById('tarea-titulo-select');
+const inputFechaLimite=document.getElementById('tarea-fecha-limite');
+// Filtro estado tareas
+let tareasEstadoFiltro='ALL'; // ALL | Pendiente | 'En proceso' | 'Enviada' | 'Completada'
+
+function ensureTareasFiltroToolbar(){
+  const cont=document.getElementById('seccion-tareas');
+  if(!cont || cont.querySelector('.tareas-filtro-toolbar')) return;
+  const bar=document.createElement('div');
+  bar.className='tareas-filtro-toolbar';
+  bar.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px;';
+  const estados=[{k:'ALL',label:'Todas'},{k:'Pendiente',label:'Pendientes'},{k:'En proceso',label:'En proceso'},{k:'Enviada',label:'Enviadas'},{k:'Completada',label:'Completadas'}];
+  estados.forEach(e=>{ const btn=document.createElement('button'); btn.type='button'; btn.textContent=e.label; btn.dataset.filtro=e.k; btn.style.cssText='padding:4px 10px;font-size:.6rem;border:1px solid #d1d5db;border-radius:14px;background:#f3f4f6;cursor:pointer;font-weight:600;'; if(e.k===tareasEstadoFiltro) btn.style.background='#2563eb',btn.style.color='#fff',btn.style.borderColor='#2563eb'; btn.addEventListener('click',()=>{ tareasEstadoFiltro=e.k; [...bar.querySelectorAll('button')].forEach(b=>{ b.style.background='#f3f4f6'; b.style.color='#111827'; b.style.borderColor='#d1d5db';}); btn.style.background='#2563eb'; btn.style.color='#fff'; btn.style.borderColor='#2563eb'; // re-render listas
+    // Re-render forcing current cached snapshot by triggering iniciarListenersTareas logic pick (listeners already active -> we'll just call a light refresh by mutating arrays?) Simpler: store last arrays in global and re-render.
+    try{ if(window.__lastTareasPersonales) renderizarTareas(listaTareasPersonales, window.__lastTareasPersonales,'personales'); if(window.__lastTareasCompartidas) renderizarTareas(listaTareasCompartidas, window.__lastTareasCompartidas,'compartidas'); }catch{}
+  }); bar.appendChild(btn); });
+  // Insert before the two columns grid (lista contenedor) -> find first h3 "Personales"
+  const gridWrap=cont.querySelector('div[style*="grid-template"]');
+  cont.insertBefore(bar, gridWrap);
+}
+let unsubscribeTareasPersonales=null, unsubscribeTareasCompartidas=null;
+// Registro para deshacer borrado de tarea
+let lastDeletedTarea=null; let lastDeletedTimeout=null;
+// === Modal edición tareas (creación dinámica) ===
+let tareaEditModal=null; let tareaEditForm=null; let tareaEditId=null; let tareaEditRef=null;
+function ensureTareaEditModal(){
+  if(tareaEditModal) return;
+  tareaEditModal=document.createElement('div');
+  tareaEditModal.id='modal-editar-tarea';
+  tareaEditModal.style.cssText='position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:10000;padding:20px;';
+  tareaEditModal.innerHTML=`<div style="background:#fff;max-width:520px;width:100%;padding:18px 20px;border-radius:12px;box-shadow:0 8px 24px -4px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px;position:relative;">
+    <button type="button" id="tarea-edit-close" style="position:absolute;top:8px;right:8px;background:#e5e7eb;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:600;">×</button>
+    <h3 style="margin:0;font-size:0.95rem;">Editar tarea</h3>
+    <form id="form-editar-tarea" style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Título predefinido</label>
+        <select name="tituloPreset" style="padding:6px 8px;font-size:.68rem;border:1px solid #d1d5db;border-radius:6px;">
+          <option value="">-- Selecciona --</option>
+          <option>Acta de evaluación inicial</option>
+          <option>Reunión padres (1º trimestre)</option>
+          <option>Reunión padres (2º trimestre)</option>
+          <option>Reunión padres (3º trimestre)</option>
+          <option>Acta evaluación (1º trimestre)</option>
+          <option>Acta evaluación (2º trimestre)</option>
+          <option>Acta evaluación (3º trimestre)</option>
+          <option>Programación docente</option>
+          <option>Informes</option>
+          <option>PAP</option>
+          <option>Actas equipo docente</option>
+          <option>Práctica docente</option>
+          <option value="__custom">Otro (personalizado)</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.65rem;font-weight:600;">Título</label>
+        <input name="titulo" required maxlength="300" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.65rem;font-weight:600;">Descripción</label>
+        <textarea name="descripcion" rows="3" maxlength="4000" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;resize:vertical;"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.65rem;font-weight:600;">Fecha límite</label>
+        <input type="date" name="fechaLimite" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.65rem;font-weight:600;">Estado</label>
+        <select name="estado" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;">
+          <option>Pendiente</option>
+          <option>En proceso</option>
+          <option>Enviada</option>
+          <option>Completada</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="tarea-edit-completada" />
+        <label for="tarea-edit-completada" style="font-size:.65rem;">Marcar completada</label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+        <button type="button" id="tarea-edit-cancel" class="btn-accion" style="background:#6b7280;">Cancelar</button>
+        <button type="submit" class="btn-accion" style="background:#2563eb;">Guardar</button>
+      </div>
+    </form>
+  </div>`;
+  document.body.appendChild(tareaEditModal);
+  tareaEditForm=tareaEditModal.querySelector('#form-editar-tarea');
+  tareaEditModal.addEventListener('click',e=>{ if(e.target===tareaEditModal) closeTareaEditModal(); });
+  tareaEditModal.querySelector('#tarea-edit-close').addEventListener('click',closeTareaEditModal);
+  tareaEditModal.querySelector('#tarea-edit-cancel').addEventListener('click',closeTareaEditModal);
+  tareaEditForm.addEventListener('submit',onSubmitEditarTarea);
+  const estadoSelect=tareaEditForm.querySelector('select[name="estado"]');
+  const chk=tareaEditForm.querySelector('#tarea-edit-completada');
+  const presetSelect=tareaEditForm.querySelector('select[name="tituloPreset"]');
+  const tituloInput=tareaEditForm.querySelector('input[name="titulo"]');
+  const fechaInput=tareaEditForm.querySelector('input[name="fechaLimite"]');
+  chk.addEventListener('change',()=>{
+    if(chk.checked) estadoSelect.value='Completada';
+    else if(estadoSelect.value==='Completada') estadoSelect.value='Pendiente';
+  });
+  estadoSelect.addEventListener('change',()=>{
+    if(estadoSelect.value==='Completada') chk.checked=true; else if(chk.checked && estadoSelect.value!=='Completada') chk.checked=false;
+  });
+  if(presetSelect && tituloInput){
+    presetSelect.addEventListener('change',()=>{
+      if(presetSelect.value==='__custom' || presetSelect.value===''){ tituloInput.value=''; tituloInput.focus(); return; }
+      tituloInput.value=presetSelect.value;
+    });
+  }
+}
+function openTareaEditModal(t){ ensureTareaEditModal(); tareaEditId=t.id; tareaEditRef=t._ref||null; const f=tareaEditForm; if(!f) return; const presetSelect=f.querySelector('select[name="tituloPreset"]'); const tituloInput=f.titulo; const fechaInput=f.querySelector('input[name="fechaLimite"]');
+  const presetValues=["Acta de evaluación inicial","Reunión padres (1º trimestre)","Reunión padres (2º trimestre)","Reunión padres (3º trimestre)","Acta evaluación (1º trimestre)","Acta evaluación (2º trimestre)","Acta evaluación (3º trimestre)","Programación docente","Informes","PAP","Actas equipo docente","Práctica docente"]; const tituloActual=t.titulo||''; if(presetSelect){ if(presetValues.includes(tituloActual)) presetSelect.value=tituloActual; else if(tituloActual) presetSelect.value='__custom'; else presetSelect.value=''; }
+  tituloInput.value=tituloActual; f.descripcion.value=t.descripcion||''; if(fechaInput){ if(t.fechaLimite){ try{ const d=new Date(t.fechaLimite); const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; fechaInput.value=iso; }catch{ fechaInput.value=''; } } else fechaInput.value=''; }
+  const estado=t.estado|| (t.completada?'Completada':'Pendiente'); f.estado.value=['Pendiente','En proceso','Enviada','Completada'].includes(estado)?estado:'Pendiente'; const chk=f.querySelector('#tarea-edit-completada'); chk.checked= (f.estado.value==='Completada') || !!t.completada; tareaEditModal.style.display='flex'; }
+function closeTareaEditModal(){ if(tareaEditModal) tareaEditModal.style.display='none'; tareaEditId=null; tareaEditRef=null; }
+async function onSubmitEditarTarea(e){ e.preventDefault(); if(!requireAuth()) return; if(!tareaEditId || !tareaEditRef) return; const f=tareaEditForm; const titulo=f.titulo.value.trim(); if(!titulo){ notifyWarn('Título requerido'); return; } const descripcion=f.descripcion.value.trim(); const estado=f.estado.value; const chk=f.querySelector('#tarea-edit-completada'); const fechaInput=f.querySelector('input[name="fechaLimite"]'); const completada=estado==='Completada' || chk.checked; let tipoActual='Personal'; let fechaLimite=null; if(fechaInput && fechaInput.value){ try{ const d=new Date(fechaInput.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
+  try{ const d=await getDoc(tareaEditRef); if(d.exists()){ const data=d.data(); if(data.tipo) tipoActual=data.tipo; } }catch{}
+  const patch={ titulo, descripcion:descripcion||'', estado, completada, timestamp:Date.now(), tipo:tipoActual, createdBy:userId }; if(fechaLimite!=null) patch.fechaLimite=fechaLimite; if(completada) patch.fechaFin=Date.now(); else patch.fechaFin=null; try{ await updateDoc(tareaEditRef,patch); notifySuccess('Tarea actualizada'); closeTareaEditModal(); }catch{ notifyError('No se pudo actualizar'); } }
+
+function renderizarTareas(cont, tareas, tipo){
+  if(!cont) return; cont.innerHTML='';
+  if(!tareas.length){ cont.innerHTML=`<p class="loading-message">Sin tareas ${tipo}</p>`; return; }
+  // Orden: pendientes primero; dentro de pendientes por fechaLimite asc (sin fecha al final), luego por timestamp desc.
+  tareas.sort((a,b)=>{
+    // Pendientes antes de completadas
+    if(!!a.completada!==!!b.completada) return a.completada?1:-1;
+    const aLim = a.fechaLimite!=null ? a.fechaLimite : Number.POSITIVE_INFINITY;
+    const bLim = b.fechaLimite!=null ? b.fechaLimite : Number.POSITIVE_INFINITY;
+    if(aLim!==bLim) return aLim-bLim; // más próxima primero
+    // Si misma fecha límite (o ninguna), timestamp reciente primero
+    return (b.timestamp||0)-(a.timestamp||0);
+  });
+  // Guardar última copia para filtros
+  if(tipo==='personales') window.__lastTareasPersonales=tareas.slice(); else if(tipo==='compartidas') window.__lastTareasCompartidas=tareas.slice();
+  // Agrupar
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const grupos={ urgentes:[], semana:[], proximas:[], sinFecha:[], completadas:[] };
+  tareas.forEach(t=>{
+    const estadoActual=t.estado || (t.completada?'Completada':'Pendiente');
+    if(tareasEstadoFiltro!=='ALL' && estadoActual!==tareasEstadoFiltro) return; // filtro
+    if(t.completada){ grupos.completadas.push(t); return; }
+    if(t.fechaLimite){
+      const dif=Math.round((t.fechaLimite - hoy.getTime())/86400000);
+      if(dif<=0) grupos.urgentes.push(t);
+      else if(dif<=7) grupos.semana.push(t);
+      else grupos.proximas.push(t);
+    } else grupos.sinFecha.push(t);
+  });
+  // Orden grupos y labels
+  const ordenRender=[['urgentes','Urgentes / Vencen ya'],['semana','Esta semana'],['proximas','Próximas'],['sinFecha','Sin fecha límite'],['completadas','Completadas']];
+  // Orden especial para completadas: por fechaFin desc, luego timestamp desc
+  grupos.completadas.sort((a,b)=>{ const af=a.fechaFin||0; const bf=b.fechaFin||0; if(bf!==af) return bf-af; return (b.timestamp||0)-(a.timestamp||0); });
+  const collapsedState = window.__tareasCollapsedState || (window.__tareasCollapsedState={});
+  let rendered=false;
+  ordenRender.forEach(([key,label])=>{
+    const list=grupos[key]; if(!list.length) return;
+    rendered=true;
+  const wrapper=document.createElement('div'); wrapper.style.marginBottom='6px';
+  const heading=document.createElement('h4'); heading.innerHTML=`<span>${label} (${list.length})</span>`; heading.style.cssText='margin:8px 0 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:#374151;display:flex;align-items:center;gap:6px;cursor:pointer;';
+  const toggle=document.createElement('button'); toggle.type='button'; toggle.textContent= collapsedState[key]?'▶':'▼'; toggle.setAttribute('aria-label','Colapsar grupo'); toggle.style.cssText='background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.55rem;padding:2px 6px;cursor:pointer;';
+  heading.prepend(toggle);
+  const groupBody=document.createElement('div'); groupBody.style.display= collapsedState[key] ? 'none':'flex'; groupBody.style.flexDirection='column'; groupBody.style.gap='8px';
+  toggle.addEventListener('click',()=>{ collapsedState[key]= !collapsedState[key]; groupBody.style.display= collapsedState[key] ? 'none':'flex'; toggle.textContent= collapsedState[key] ? '▶':'▼'; });
+  wrapper.appendChild(heading); wrapper.appendChild(groupBody); cont.appendChild(wrapper);
+  list.forEach(t=>{
+      // (Elemento tarea original reutilizado)
+      const el=document.createElement('div');
+      el.className='tarea-item';
+      el.style.cssText='background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;position:relative;';
+      const header=document.createElement('div'); header.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:8px;';
+      const title=document.createElement('div'); title.textContent=t.titulo||''; title.style.cssText='font-weight:600;font-size:0.85rem;flex:1;'; if(t.completada){ title.style.textDecoration='line-through'; title.style.opacity='.6'; }
+      const estadoBadge=document.createElement('span'); const estado=t.estado || (t.completada?'Completada':'Pendiente'); estadoBadge.textContent=estado; estadoBadge.style.cssText='font-size:.55rem;padding:3px 6px;border-radius:12px;font-weight:600;line-height:1;';
+      const colorMap={Pendiente:'#9ca3af', 'En proceso':'#2563eb', 'Enviada':'#d97706', 'Completada':'#059669'}; estadoBadge.style.background=colorMap[estado]||'#9ca3af'; estadoBadge.style.color='#fff';
+      header.append(title,estadoBadge);
+      const desc=document.createElement('div'); desc.textContent=t.descripcion||''; desc.style.cssText='font-size:0.7rem;color:#4b5563;white-space:pre-wrap;'; if(!t.descripcion) desc.style.display='none';
+      const meta=document.createElement('div'); meta.style.cssText='font-size:.55rem;color:#64748b;';
+      let extraFecha='';
+      if(t.fechaLimite){
+        try{ const d=new Date(t.fechaLimite); const dif=Math.round((d.getTime()-hoy.getTime())/86400000); const fechaStr=d.toLocaleDateString('es-ES'); let etiqueta=`Límite ${fechaStr}`; let badgeColor='#2563eb'; if(dif<0){ etiqueta=`Vencida (${fechaStr})`; badgeColor='#b91c1c'; } else if(dif===0){ etiqueta=`Hoy (${fechaStr})`; badgeColor='#dc2626'; } else if(dif===1){ etiqueta=`Mañana (${fechaStr})`; badgeColor='#d97706'; } else if(dif<=3){ etiqueta=`${dif} días (${fechaStr})`; badgeColor='#f59e0b'; } else if(dif<=7){ etiqueta=`${dif} días (${fechaStr})`; badgeColor='#2563eb'; } else { etiqueta=`${fechaStr}`; badgeColor='#64748b'; } extraFecha=` | <span style="display:inline-block;background:${badgeColor};color:#fff;padding:2px 6px;border-radius:12px;font-size:.55rem;line-height:1;font-weight:600;">${etiqueta}</span>`; }catch{}
+      }
+      meta.innerHTML=t.completada?`Completada ${t.fechaFin?new Date(t.fechaFin).toLocaleDateString('es-ES'):''}${extraFecha}`:`Creada ${t.timestamp?new Date(t.timestamp).toLocaleDateString('es-ES'):''}${extraFecha}`;
+      const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
+      const btnEdit=document.createElement('button'); btnEdit.type='button'; btnEdit.textContent='Editar'; btnEdit.className='btn-accion editar'; btnEdit.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnEdit.addEventListener('click',()=>openTareaEditModal(t));
+      const btnComplete=document.createElement('button'); btnComplete.type='button'; btnComplete.textContent=t.completada?'Reabrir':'Completar'; btnComplete.className='btn-accion'; btnComplete.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; try{ const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; const patch={ completada:nowCompleted, timestamp:Date.now(), createdBy:t.createdBy||userId, tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida') }; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; } await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch{ notifyError('No se pudo actualizar'); } });
+      const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='Eliminar'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnDel.addEventListener('click',()=>{ if(!requireAuth()) return; showConfirmation('¿Eliminar tarea?', async()=>{ try{ const ref=t._ref; if(!ref) return; const backupData={...t}; delete backupData._ref; await deleteDoc(ref); lastDeletedTarea={ ref, data: backupData }; if(lastDeletedTimeout) clearTimeout(lastDeletedTimeout); lastDeletedTimeout=setTimeout(()=>{ lastDeletedTarea=null; },15000); notifyWithAction('Tarea eliminada','Deshacer',async()=>{ if(!lastDeletedTarea) return; const {ref:restoreRef,data}=lastDeletedTarea; lastDeletedTarea=null; try{ const restore={...data}; if(!restore.createdBy) restore.createdBy=userId; if(!restore.timestamp) restore.timestamp=Date.now(); if(restore.tipo!=='Personal' && restore.tipo!=='Compartida') restore.tipo = (tipo==='personales'?'Personal':'Compartida'); await setDoc(restoreRef,restore); notifySuccess('Restaurada'); }catch{ notifyError('No se pudo restaurar'); } }, { type:'warn', timeout:15000 }); }catch{ notifyError('Error al eliminar'); } }, { title:'Eliminar', danger:true }); });
+      actions.append(btnEdit,btnComplete,btnDel);
+  el.append(header,desc,meta,actions); groupBody.appendChild(el);
+    });
+  });
+  if(!rendered) cont.innerHTML='<p class="loading-message">No hay tareas con ese filtro</p>';
+  ensureTareasFiltroToolbar();
+  return; // grouping path returns
+  // (Legacy single flat render retained below but unreachable)
+  tareas.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='tarea-item';
+    el.style.cssText='background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;position:relative;';
+    const header=document.createElement('div'); header.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:8px;';
+    const title=document.createElement('div'); title.textContent=t.titulo||''; title.style.cssText='font-weight:600;font-size:0.85rem;flex:1;'; if(t.completada){ title.style.textDecoration='line-through'; title.style.opacity='.6'; }
+    const estadoBadge=document.createElement('span'); const estado=t.estado || (t.completada?'Completada':'Pendiente'); estadoBadge.textContent=estado; estadoBadge.style.cssText='font-size:.55rem;padding:3px 6px;border-radius:12px;font-weight:600;line-height:1;';
+    const colorMap={Pendiente:'#9ca3af', 'En proceso':'#2563eb', 'Enviada':'#d97706', 'Completada':'#059669'}; estadoBadge.style.background=colorMap[estado]||'#9ca3af'; estadoBadge.style.color='#fff';
+    header.append(title,estadoBadge);
+    const desc=document.createElement('div'); desc.textContent=t.descripcion||''; desc.style.cssText='font-size:0.7rem;color:#4b5563;white-space:pre-wrap;'; if(!t.descripcion) desc.style.display='none';
+  const meta=document.createElement('div'); meta.style.cssText='font-size:.55rem;color:#64748b;';
+    let extraFecha='';
+    if(t.fechaLimite){
+      try{
+        const d=new Date(t.fechaLimite); const hoy=new Date(); hoy.setHours(0,0,0,0); const dif=Math.round((d.getTime()-hoy.getTime())/86400000); const fechaStr=d.toLocaleDateString('es-ES');
+        let etiqueta=`Límite ${fechaStr}`; let badgeColor='#2563eb';
+        if(dif<0){ etiqueta=`Vencida (${fechaStr})`; badgeColor='#b91c1c'; }
+        else if(dif===0){ etiqueta=`Hoy (${fechaStr})`; badgeColor='#dc2626'; }
+        else if(dif===1){ etiqueta=`Mañana (${fechaStr})`; badgeColor='#d97706'; }
+        else if(dif<=3){ etiqueta=`${dif} días (${fechaStr})`; badgeColor='#f59e0b'; }
+        else if(dif<=7){ etiqueta=`${dif} días (${fechaStr})`; badgeColor='#2563eb'; }
+        else { etiqueta=`${fechaStr}`; badgeColor='#64748b'; }
+        extraFecha=` | <span style="display:inline-block;background:${badgeColor};color:#fff;padding:2px 6px;border-radius:12px;font-size:.55rem;line-height:1;font-weight:600;">${etiqueta}</span>`;
+      }catch{}
+    }
+    meta.innerHTML = t.completada?`Completada ${t.fechaFin?new Date(t.fechaFin).toLocaleDateString('es-ES'):''}${extraFecha}`:`Creada ${t.timestamp?new Date(t.timestamp).toLocaleDateString('es-ES'):''}${extraFecha}`;
+    const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
+    const btnEdit=document.createElement('button'); btnEdit.type='button'; btnEdit.textContent='Editar'; btnEdit.className='btn-accion editar'; btnEdit.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnEdit.addEventListener('click',()=>openTareaEditModal(t));
+    const btnComplete=document.createElement('button'); btnComplete.type='button'; btnComplete.textContent=t.completada?'Reabrir':'Completar'; btnComplete.className='btn-accion'; btnComplete.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;';
+  btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; try{ const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; const patch={ completada:nowCompleted, timestamp:Date.now(), createdBy:t.createdBy||userId, tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida') }; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; } await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch{ notifyError('No se pudo actualizar'); } });
+    const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='Eliminar'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;';
+    btnDel.addEventListener('click',()=>{ if(!requireAuth()) return; showConfirmation('¿Eliminar tarea?', async()=>{ try{ const ref=t._ref; if(!ref) return; // guardar datos para deshacer
+          const backupData={...t}; delete backupData._ref; // limpiar ref
+          await deleteDoc(ref);
+          // preparar undo
+          lastDeletedTarea={ ref, data: backupData };
+          if(lastDeletedTimeout) clearTimeout(lastDeletedTimeout);
+          lastDeletedTimeout=setTimeout(()=>{ lastDeletedTarea=null; },15000);
+          notifyWithAction('Tarea eliminada','Deshacer',async()=>{
+            if(!lastDeletedTarea) return; const {ref:restoreRef,data}=lastDeletedTarea; lastDeletedTarea=null; try{ // Asegurar campos obligatorios reglas
+              const restore={ ...data };
+              if(!restore.createdBy) restore.createdBy=userId;
+              if(!restore.timestamp) restore.timestamp=Date.now();
+              if(restore.tipo!=='Personal' && restore.tipo!=='Compartida') restore.tipo = (tipo==='personales'?'Personal':'Compartida');
+              await setDoc(restoreRef, restore); notifySuccess('Restaurada');
+            }catch{ notifyError('No se pudo restaurar'); }
+          }, { type:'warn', timeout:15000 });
+        }catch{ notifyError('Error al eliminar'); } }, { title:'Eliminar', danger:true }); });
+    actions.append(btnEdit,btnComplete,btnDel);
+    el.append(header,desc,meta,actions);
+    cont.appendChild(el);
+  });
+}
+
+function setupTareas(){ if(!formTarea) return; if(formTarea.dataset.bind==='1') return; formTarea.dataset.bind='1';
+  // Sincroniza select de títulos con input
+  if(selectTareaTitulo && inputTareaTitulo){
+    selectTareaTitulo.addEventListener('change',()=>{
+      if(selectTareaTitulo.value==='__custom' || selectTareaTitulo.value===''){ inputTareaTitulo.value=''; inputTareaTitulo.focus(); return; }
+      inputTareaTitulo.value=selectTareaTitulo.value;
+    });
+  }
+  ensureTareasFiltroToolbar();
+  formTarea.addEventListener('submit',async e=>{ e.preventDefault(); if(!requireAuth()) return; const rawTitulo=inputTareaTitulo.value.trim(); if(!rawTitulo){ notifyWarn('Título requerido'); return; } const descripcion=document.getElementById('tarea-descripcion').value.trim(); let tipo=document.getElementById('tarea-tipo').value||'Personal'; if(tipo!=='Personal' && tipo!=='Compartida') tipo='Personal'; const uid=auth?.currentUser?.uid; if(!uid){ notifyWarn('Usuario aún no inicializado, intenta de nuevo'); return; } if(!userId) userId=uid; let fechaLimite=null; if(inputFechaLimite && inputFechaLimite.value){ try{ const d=new Date(inputFechaLimite.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
+    const data={ titulo:rawTitulo, descripcion:descripcion||'', tipo, completada:false, estado:'Pendiente', fechaFin:null, fechaLimite, timestamp:Date.now(), createdBy:uid };
+    try{ if(tipo==='Personal'){ const col=collection(db,`artifacts/${appId}/users/${uid}/tareas`); await addDoc(col,data); notifySuccess('Tarea personal añadida'); } else { const col=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); await addDoc(col,data); notifySuccess('Tarea compartida añadida'); } formTarea.reset(); if(selectTareaTitulo) selectTareaTitulo.value=''; }
+    catch(err){ console.error('Error creando tarea',err); notifyError('No se pudo guardar (revise consola)'); }
+  }); }
+
+function iniciarListenersTareas(){ if(!userId || !db) return; if(unsubscribeTareasPersonales){ try{unsubscribeTareasPersonales();}catch{} unsubscribeTareasPersonales=null; } if(unsubscribeTareasCompartidas){ try{unsubscribeTareasCompartidas();}catch{} unsubscribeTareasCompartidas=null; } try{ const colPers=collection(db,`artifacts/${appId}/users/${userId}/tareas`); unsubscribeTareasPersonales=onSnapshot(colPers,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colPers,d.id),...d.data()})); renderizarTareas(listaTareasPersonales,arr,'personales'); }); }catch{} try{ const colComp=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); unsubscribeTareasCompartidas=onSnapshot(colComp,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colComp,d.id),...d.data()})); renderizarTareas(listaTareasCompartidas,arr,'compartidas'); }); }catch{} }
 
 // Calendario
 const calendarGrid=document.getElementById('calendar-grid');
 const monthYearDisplay=document.getElementById('month-year');
 const prevMonthBtn=document.getElementById('prev-month');
 const nextMonthBtn=document.getElementById('next-month');
+const calendarToggleScroll=document.getElementById('calendar-toggle-scroll');
+const calendarPrintBtn=document.getElementById('calendar-print');
 let currentDate=new Date();
 
 // Menú móvil
@@ -206,8 +475,30 @@ function renderizarSustituciones(items){
     contLegacy.appendChild(wrap);
   }
 }
-function renderizarCalendario(){ const year=currentDate.getFullYear(); const month=currentDate.getMonth(); monthYearDisplay.textContent=new Date(year,month).toLocaleString('es-ES',{month:'long',year:'numeric'}); calendarGrid.querySelectorAll('.day-cell,.other-month').forEach(c=>c.remove()); const first=new Date(year,month,1); const last=new Date(year,month+1,0); const offset=(first.getDay()+6)%7; for(let i=0;i<offset;i++){ const e=document.createElement('div'); e.className='day-cell other-month'; calendarGrid.appendChild(e);} for(let d=1; d<=last.getDate(); d++){ const cell=document.createElement('div'); cell.className='day-cell'; cell.dataset.date=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; cell.innerHTML=`<span class='day-number'>${d}</span>`; calendarGrid.appendChild(cell);} document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); }
-function renderizarActividades(){ const filtro=filtroCursosSelect?[...filtroCursosSelect.selectedOptions].map(o=>o.value):[]; document.querySelectorAll('.day-cell').forEach(cell=>{ [...cell.querySelectorAll('.activity-item')].forEach(a=>a.remove()); (cell.activities||[]).forEach(act=>{ if(filtro.length){ const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(!cs.some(c=>filtro.includes(c))) return; } const item=document.createElement('div'); item.className='activity-item'; const tipo=(act.tipo||'').toLowerCase(); if(['dentro','salida'].includes(tipo)) item.classList.add('tipo-'+tipo); else if(tipo) item.classList.add('tipo-otro'); item.dataset.id=act.id; const tt=document.createElement('span'); tt.textContent=act.title||''; item.appendChild(tt); const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(cs.length){ const wrap=document.createElement('div'); wrap.className='curso-tags'; cs.slice(0,2).forEach(c=>{ const s=document.createElement('span'); s.className='curso-tag'; s.textContent=abreviarCurso(c); wrap.appendChild(s); }); if(cs.length>2){ const extra=document.createElement('span'); extra.className='curso-tag out'; extra.textContent='+'+(cs.length-2); wrap.appendChild(extra);} item.appendChild(wrap);} const canManage=canWrite && (isAdmin||(act.createdBy?act.createdBy===userId:true)); if(canManage){ const del=document.createElement('button'); del.className='delete-btn'; del.textContent='×'; del.dataset.id=act.id; item.appendChild(del); item.setAttribute('draggable','true'); item.addEventListener('dragstart',ev=>{ try{ev.dataTransfer.effectAllowed='move';}catch{} dragActivity=act; dragSourceDate=cell.dataset.date; item.classList.add('dragging'); }); item.addEventListener('dragend',()=>{ dragActivity=null; dragSourceDate=null; item.classList.remove('dragging'); document.querySelectorAll('.day-cell.drag-over').forEach(c=>c.classList.remove('drag-over')); }); } cell.appendChild(item); }); }); }
+function renderizarCalendario(){ const year=currentDate.getFullYear(); const month=currentDate.getMonth(); monthYearDisplay.textContent=new Date(year,month).toLocaleString('es-ES',{month:'long',year:'numeric'}); calendarGrid.querySelectorAll('.day-cell,.other-month').forEach(c=>c.remove()); const first=new Date(year,month,1); const last=new Date(year,month+1,0); const offset=(first.getDay()+6)%7; for(let i=0;i<offset;i++){ const e=document.createElement('div'); e.className='day-cell other-month'; calendarGrid.appendChild(e);} for(let d=1; d<=last.getDate(); d++){ const cell=document.createElement('div'); cell.className='day-cell'; cell.dataset.date=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; cell.innerHTML=`<span class='day-number'>${d}</span>`; calendarGrid.appendChild(cell);} document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); limitarActividadesMovil(); }
+function renderizarActividades(){ const filtro=filtroCursosSelect?[...filtroCursosSelect.selectedOptions].map(o=>o.value):[]; document.querySelectorAll('.day-cell').forEach(cell=>{ [...cell.querySelectorAll('.activity-item,.more-acts')].forEach(a=>a.remove()); (cell.activities||[]).forEach(act=>{ if(filtro.length){ const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(!cs.some(c=>filtro.includes(c))) return; } const item=document.createElement('div'); item.className='activity-item'; const tipo=(act.tipo||'').toLowerCase(); if(['dentro','salida'].includes(tipo)) item.classList.add('tipo-'+tipo); else if(tipo) item.classList.add('tipo-otro'); item.dataset.id=act.id; const tt=document.createElement('span'); tt.textContent=act.title||''; item.appendChild(tt); const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(cs.length){ const wrap=document.createElement('div'); wrap.className='curso-tags'; cs.slice(0,2).forEach(c=>{ const s=document.createElement('span'); s.className='curso-tag'; s.textContent=abreviarCurso(c); wrap.appendChild(s); }); if(cs.length>2){ const extra=document.createElement('span'); extra.className='curso-tag out'; extra.textContent='+'+(cs.length-2); wrap.appendChild(extra);} item.appendChild(wrap);} const canManage=canWrite && (isAdmin||(act.createdBy?act.createdBy===userId:true)); if(canManage){ const del=document.createElement('button'); del.className='delete-btn'; del.textContent='×'; del.dataset.id=act.id; item.appendChild(del); item.setAttribute('draggable','true'); item.addEventListener('dragstart',ev=>{ try{ev.dataTransfer.effectAllowed='move';}catch{} dragActivity=act; dragSourceDate=cell.dataset.date; item.classList.add('dragging'); }); item.addEventListener('dragend',()=>{ dragActivity=null; dragSourceDate=null; item.classList.remove('dragging'); document.querySelectorAll('.day-cell.drag-over').forEach(c=>c.classList.remove('drag-over')); }); } cell.appendChild(item); }); }); limitarActividadesMovil(); }
+
+function limitarActividadesMovil(){ const isMobilePortrait=window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches; if(!isMobilePortrait) return; document.querySelectorAll('.day-cell').forEach(cell=>{ const acts=[...cell.querySelectorAll('.activity-item')]; const max=2; if(acts.length>max){ acts.slice(max).forEach(a=>a.remove()); if(!cell.querySelector('.more-acts')){ const more=document.createElement('div'); more.className='more-acts'; more.textContent=`+${acts.length-max}`; cell.appendChild(more); } } }); }
+
+// Toggle scroll interno
+if(calendarToggleScroll){
+  calendarToggleScroll.addEventListener('click',()=>{
+    const enabled=calendarGrid.classList.toggle('calendar-scroll-interno');
+    calendarToggleScroll.textContent=enabled?'Modo compacto':'Modo scroll interno';
+    // Re-render para quitar o añadir +N
+    renderizarActividades();
+  });
+}
+
+// Impresión calendario
+if(calendarPrintBtn){
+  calendarPrintBtn.addEventListener('click',()=>{
+  try{ calendarGrid.classList.remove('calendar-scroll-interno'); }catch{}
+  renderizarActividades(); // asegurar vista compacta estable
+  document.body.classList.add('print-calendario');
+  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('print-calendario'),150); },60);
+  });
+}
 
 // Firestore listeners
 function setupFirestoreListeners(){
@@ -219,6 +510,7 @@ function setupFirestoreListeners(){
  onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); });
  // Encuestas
  if(typeof setupEncuestasRealtime==='function') setupEncuestasRealtime();
+ setupTareas(); iniciarListenersTareas();
 }
 
 // ================= ENCUESTAS =================
@@ -494,6 +786,7 @@ filtroCursosClear?.addEventListener('click',()=>{ [...(filtroCursosSelect?.optio
 prevMonthBtn.addEventListener('click',()=>{ currentDate.setMonth(currentDate.getMonth()-1); renderizarCalendario(); });
 nextMonthBtn.addEventListener('click',()=>{ currentDate.setMonth(currentDate.getMonth()+1); renderizarCalendario(); });
 
+
 // Documentos
 btnSubirDocumento?.addEventListener('click',()=>{ if(!canWrite){notifyWarn('No tienes permisos para subir documentos');return;} const title=document.getElementById('modal-doc-title'); if(title) title.textContent='Subir Documento'; document.getElementById('documento-id').value=''; document.getElementById('documento-has-file').value='0'; const info=document.getElementById('documento-archivo-info'); if(info) info.style.display='none'; const file=document.getElementById('documento-archivo'); if(file){ file.required=true; file.value=''; } modalDocumento.style.display='flex'; modalDocumento.setAttribute('aria-hidden','false'); setTimeout(()=>document.getElementById('documento-titulo')?.focus(),0); });
 closeModalDocBtn?.addEventListener('click',()=>{ modalDocumento.style.display='none'; modalDocumento.setAttribute('aria-hidden','true'); formDocumento.reset(); document.getElementById('documento-id').value=''; document.getElementById('documento-has-file').value='0'; const info=document.getElementById('documento-archivo-info'); if(info) info.style.display='none'; const title=document.getElementById('modal-doc-title'); if(title) title.textContent='Subir Documento'; const f=document.getElementById('documento-archivo'); if(f) f.required=true; });
@@ -605,7 +898,7 @@ window.addEventListener('click',e=>{ if(e.target===modalConfirmacion){ modalConf
 
 // Auth init
 async function initAuth(){ if(location.protocol==='file:'){ notifyWarn('Abra la aplicación mediante HTTP/HTTPS'); return; } if(!firebaseConfig.apiKey){ userDisplay.textContent='Config Firebase faltante'; return; } const app=initializeApp(firebaseConfig); auth=getAuth(app); try{ await setPersistence(auth,browserLocalPersistence); }catch{} db=getFirestore(app); try{ const rr=await getRedirectResult(auth); if(rr) localStorage.removeItem(LS_REDIRECT_MARK); lastRedirectResultChecked=true; }catch{} const useEmu=(location.hostname==='localhost'||location.hostname==='127.0.0.1'); if(useEmu){ try{connectAuthEmulator(auth,'http://localhost:9099');}catch{} try{connectFirestoreEmulator(db,'localhost',8080);}catch{} }
-onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); });
+onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } iniciarListenersTareas(); didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); iniciarListenersTareas(); });
 }
 
 // Login/Logout
@@ -659,3 +952,29 @@ function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileRea
 
 // Init
 initAuth();
+
+// Ocultar barra inferior al hacer scroll hacia abajo en móvil y mostrar al subir
+let lastScrollY=window.scrollY; let hideTimeout=null;
+window.addEventListener('scroll',()=>{
+  const nav=document.getElementById('nav-secciones'); if(!nav) return;
+  const isMobile=window.matchMedia('(max-width: 768px)').matches;
+  if(!isMobile){ nav.classList.remove('nav-hidden'); return; }
+  const current=window.scrollY;
+  if(current>lastScrollY+10){ // scroll down
+    nav.classList.add('nav-hidden');
+  } else if(current<lastScrollY-10){ // scroll up
+    nav.classList.remove('nav-hidden');
+  }
+  lastScrollY=current;
+  if(hideTimeout) clearTimeout(hideTimeout);
+  // auto show after inactivity
+  hideTimeout=setTimeout(()=>{ nav.classList.remove('nav-hidden'); },1200);
+});
+
+// Colapsado manual del menú inferior en móvil
+const navBarBottom = document.getElementById('nav-secciones');
+const collapseBtn = null;
+
+// Botón de colapsar nav eliminado
+
+window.addEventListener('resize',()=>{ const isMobile=window.matchMedia('(max-width: 768px)').matches; if(!isMobile){ navBarBottom.classList.remove('collapsed'); } });

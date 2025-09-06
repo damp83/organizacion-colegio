@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Cabeceras COOP/COEP se aplican ahora vía Hosting sólo en rutas necesarias -->
-  <link rel="icon" type="image/svg+xml" href="./logo.svg">
-  <link rel="icon" type="image/png" href="./logo.png" sizes="96x96">
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="shortcut icon" href="/favicon.png">
+  <!-- (Opcional) Si deseas seguir mostrando el logo como SVG pequeño podrías mantenerlo como mask-icon para Safari pinned tabs -->
+  <link rel="mask-icon" href="/logo.svg" color="#2563eb">
   <title>CEIP LA Arboleda – Gestión del Claustro</title>
   <link rel="stylesheet" href="./style.css">
 </head>
@@ -36,19 +41,62 @@
     </header>
 
     <div class="nav-bar" id="nav-secciones">
-  <button id="btn-documentos" class="active">Documentos<span class="badge-dot"></span></button>
-  <button id="btn-calendario">Calendario<span class="badge-dot"></span></button>
-  <button id="btn-anuncios">Anuncios<span class="badge-dot"></span></button>
-  <button id="btn-agenda">Agenda<span class="badge-dot"></span></button>
-    <button id="btn-sustituciones">Sustituciones<span class="badge-dot"></span></button>
-  <button id="btn-encuestas">Encuestas<span class="badge-dot"></span></button>
+      <button id="btn-documentos" class="active" aria-label="Documentos">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </span>
+        <span class="nav-text">Documentos</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-calendario" aria-label="Calendario">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <span class="nav-text">Calendario</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-anuncios" aria-label="Anuncios">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 13v8H1V9h2z"/></svg>
+        </span>
+        <span class="nav-text">Anuncios</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-agenda" aria-label="Agenda">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 4v16"/></svg>
+        </span>
+        <span class="nav-text">Agenda</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-sustituciones" aria-label="Sustituciones">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M15 11l4.55-4.55"/><path d="M2 22l6-6"/></svg>
+        </span>
+        <span class="nav-text">Sustituciones</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-encuestas" aria-label="Encuestas">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"/><path d="M5 7v14"/><path d="M19 7v6"/><path d="M12 7v10"/></svg>
+        </span>
+        <span class="nav-text">Encuestas</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-tareas" aria-label="Tareas">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M2 20h6l2 2h6l2-2h2V8H2z"/></svg>
+        </span>
+        <span class="nav-text">Tareas</span>
+        <span class="badge-dot"></span>
+      </button>
     </div>
 
     <main>
       <!-- Sección de Documentos -->
       <section id="seccion-documentos" class="seccion active">
-        <h2>Documentos Institucionales</h2>
-        <div class="documentos-grid">
+  <h2>Documentos Institucionales</h2>
+  <div class="documentos-grid">
           <p class="loading-message">Cargando documentos...</p>
         </div>
         <button class="btn-accion" id="btn-subir-documento">Subir Documento</button>
@@ -56,11 +104,17 @@
 
       <!-- Sección de Calendario -->
       <section id="seccion-calendario" class="seccion">
-        <h2>Calendario de Actividades</h2>
+  <h2>Calendario de Actividades</h2>
+        <img src="./logo.svg" alt="Logo" class="print-logo" style="display:none;" />
         <div class="calendar-nav">
           <button id="prev-month">&lt;</button>
           <span id="month-year"></span>
           <button id="next-month">&gt;</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+          <button type="button" id="calendar-toggle-scroll" class="btn-accion" style="margin-top:0; padding:6px 12px; font-size:0.7rem; background:#374151;">Modo scroll interno</button>
+          <button type="button" id="calendar-print" class="btn-accion" style="margin-top:0; padding:6px 12px; font-size:0.7rem; background:#2563eb;">Imprimir</button>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2; max-width:260px;">Activa para ver más actividades por día desplazando dentro de cada casilla.</small>
         </div>
         <div class="calendar-filtros" id="calendar-filtros" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; margin-bottom:14px;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:240px;">
@@ -83,11 +137,12 @@
           <div class="day-header">Sáb</div>
           <div class="day-header">Dom</div>
         </div>
+  <div class="print-footer" style="display:none;">CEIP La Arboleda</div>
       </section>
 
       <!-- Sección de Anuncios -->
       <section id="seccion-anuncios" class="seccion">
-        <h2>Tablón de Anuncios</h2>
+  <h2>Tablón de Anuncios</h2>
         <form id="form-anuncio" class="anuncios-form">
           <textarea id="anuncio-texto" placeholder="Escribe tu anuncio aquí..." required></textarea>
           <button type="submit" class="btn-accion">Publicar Anuncio</button>
@@ -99,7 +154,7 @@
 
       <!-- Sección de Agenda -->
       <section id="seccion-agenda" class="seccion">
-        <h2>Agenda de Reuniones</h2>
+  <h2>Agenda de Reuniones</h2>
         <form id="form-agenda" class="agenda-form">
           <input type="hidden" id="agenda-id">
           <input type="text" id="agenda-titulo" placeholder="Título de la reunión" required>
@@ -121,7 +176,7 @@
 
       <!-- Sección de Sustituciones -->
       <section id="seccion-sustituciones" class="seccion">
-        <h2>Gestión de Sustituciones</h2>
+  <h2>Gestión de Sustituciones</h2>
         <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <label for="filtro-sust-curso" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar curso</label>
@@ -246,7 +301,7 @@
 
       <!-- Sección de Encuestas -->
       <section id="seccion-encuestas" class="seccion">
-        <h2>Encuestas Rápidas</h2>
+  <h2>Encuestas Rápidas</h2>
         <form id="form-encuestas" style="margin-bottom:16px; display:flex; flex-direction:column; gap:10px; max-width:520px;">
           <input type="text" id="encuesta-pregunta" placeholder="Escribe tu pregunta aquí..." required style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;" />
           <div id="encuestas-opciones" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -261,6 +316,67 @@
         </form>
         <div id="lista-encuestas">
           <p class="loading-message">Sin encuestas todavía</p>
+        </div>
+      </section>
+
+      <!-- Sección de Tareas -->
+      <section id="seccion-tareas" class="seccion">
+        <h2>Mis Tareas</h2>
+        <form id="form-tarea" style="margin-bottom:18px; display:flex; flex-direction:column; gap:10px; max-width:620px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Tipo de título</label>
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+              <select id="tarea-titulo-select" style="flex:1; min-width:240px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;">
+                <option value="">-- Selecciona --</option>
+                <option>Acta de evaluación inicial</option>
+                <option>Reunión padres (1º trimestre)</option>
+                <option>Reunión padres (2º trimestre)</option>
+                <option>Reunión padres (3º trimestre)</option>
+                <option>Acta evaluación (1º trimestre)</option>
+                <option>Acta evaluación (2º trimestre)</option>
+                <option>Acta evaluación (3º trimestre)</option>
+                <option>Programación docente</option>
+                <option>Informes</option>
+                <option>PAP</option>
+                <option>Actas equipo docente</option>
+                <option>Práctica docente</option>
+                <option value="__custom">Otro (especificar)</option>
+              </select>
+              <input type="text" id="tarea-titulo" placeholder="Título de la tarea" required style="flex:1; min-width:240px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem;" />
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Fecha límite</label>
+              <input type="date" id="tarea-fecha-limite" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;" />
+            </div>
+            <div style="flex:2; min-width:240px; display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Tipo de tarea</label>
+              <select id="tarea-tipo" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;">
+                <option value="Personal">Personal</option>
+                <option value="Compartida">Compartida</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="tarea-descripcion" placeholder="Descripción (opcional)" rows="3" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;"></textarea>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="submit" class="btn-accion" style="margin-top:0;">Añadir Tarea</button>
+          </div>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2;">Las tareas personales sólo las ves tú. Las compartidas son visibles para todo el claustro autorizado. Si seleccionas un título predefinido se rellenará automáticamente; usa "Otro" para escribir el tuyo.</small>
+        </form>
+        <div style="display:grid; gap:24px; align-items:start; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+          <div>
+            <h3 style="margin:0 0 8px; font-size:0.95rem;">Personales</h3>
+            <div id="lista-tareas-personales" class="tareas-list" style="display:flex; flex-direction:column; gap:10px;">
+              <p class="loading-message">Sin tareas personales</p>
+            </div>
+          </div>
+          <div>
+            <h3 style="margin:0 0 8px; font-size:0.95rem;">Compartidas</h3>
+            <div id="lista-tareas-compartidas" class="tareas-list" style="display:flex; flex-direction:column; gap:10px;">
+              <p class="loading-message">Sin tareas compartidas</p>
+            </div>
+          </div>
         </div>
       </section>
     </main>

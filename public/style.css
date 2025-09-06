@@ -154,6 +154,9 @@ header h1 {
 	position: relative;
 }
 
+.nav-bar button .nav-icon { display:block; margin:0 auto 4px; }
+.nav-bar button .nav-text { display:block; font-size:.65rem; font-weight:600; letter-spacing:.5px; }
+
 .nav-bar button .badge-dot {
 	position: absolute;
 	top: 6px;
@@ -345,6 +348,97 @@ h2 {
 	overflow: hidden;
 	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
 }
+
+/* Ajustes calendario móvil vertical: asegurar que entren todas las semanas visibles sin scroll interno grande */
+@media (max-width: 600px) and (orientation: portrait) {
+	.calendar-nav { font-size:1.1rem; }
+	.calendar-nav button { padding:6px 10px; font-size:1rem; }
+	.calendar-grid { border-radius:6px; }
+	.day-header { padding:6px 2px; font-size:0.56rem; letter-spacing:.2px; }
+	.day-cell { min-height:56px; padding:2px 2px 4px; font-size:0.48rem; gap:2px; }
+	.day-number { font-size:0.58rem; font-weight:600; }
+	.activity-item { padding:1px 3px; font-size:0.46rem; line-height:1.05; border-radius:3px; }
+	.activity-item .curso-tag { font-size:0.45rem; }
+	.calendar-grid .day-cell { overflow:hidden; }
+	.day-cell .more-acts { font-size:0.46rem; color:#2563eb; font-weight:600; }
+}
+
+	/* Modo scroll interno calendario */
+	.calendar-scroll-interno .day-cell { overflow-y:auto !important; scrollbar-width:thin; }
+	.calendar-scroll-interno .day-cell::-webkit-scrollbar { width:4px; }
+	.calendar-scroll-interno .day-cell::-webkit-scrollbar-track { background:transparent; }
+	.calendar-scroll-interno .day-cell::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+	.calendar-scroll-interno .day-cell .more-acts { display:none !important; }
+
+	/* Estilos impresión calendario */
+/* Forzar orientación horizontal para impresión de tabla sustituciones */
+@page { size: A4 landscape; margin: 6mm 8mm; }
+	@media print {
+		/* Ocultar todo el resto de la interfaz */
+		body, html { background:#fff !important; padding:0 !important; margin:0 !important; }
+		header, .nav-bar, footer, .menu-toggle, .auth-actions, .brand, .user-info, .print-logo, .print-footer,
+		#seccion-documentos, #seccion-anuncios, #seccion-agenda, #seccion-encuestas,
+		#btn-subir-documento, #modal-actividad, #modal-actividad-detalle, #modal-documento, #modal-confirmacion { display:none !important; }
+		/* Modo imprimir calendario */
+		body.print-calendario #seccion-calendario { display:block !important; }
+		body.print-calendario #seccion-calendario .calendar-nav button { display:none !important; }
+		body.print-calendario #seccion-calendario .calendar-grid { box-shadow:none; border:2px solid #1e3a8a; }
+		body.print-calendario #seccion-calendario .day-header { background:#2563eb !important; color:#fff !important; font-weight:600; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+		body.print-calendario #seccion-calendario .day-cell { min-height:110px; font-size:0.75rem; background:#ffffff; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; }
+		body.print-calendario #seccion-calendario .day-cell .activity-item { font-size:0.62rem; padding:2px 4px; border-radius:4px; }
+		/* Ocultar controles y textos de ayuda al imprimir calendario */
+		body.print-calendario #calendar-toggle-scroll,
+		body.print-calendario #calendar-print,
+		body.print-calendario #calendar-filtros,
+		body.print-calendario #seccion-calendario small,
+		body.print-calendario #seccion-calendario label,
+		body.print-calendario #seccion-calendario select,
+		body.print-calendario #seccion-calendario button#filtro-cursos-clear { display:none !important; }
+		/* El contenedor inline que envuelve los botones (scroll/print) */
+		body.print-calendario #seccion-calendario > div[style*='calendar-toggle-scroll'] { display:none !important; }
+		body.print-calendario #seccion-sustituciones { display:none !important; }
+		/* Modo imprimir sustituciones */
+		body.print-sustituciones #seccion-sustituciones { display:block !important; margin:0 !important; padding:0 !important; visibility:visible !important; }
+		body.print-sustituciones #seccion-sustituciones, body.print-sustituciones #seccion-sustituciones * { visibility:visible !important; }
+		body.print-sustituciones #seccion-sustituciones > *:not(#lista-sustituciones) { display:none !important; }
+		body.print-sustituciones #lista-sustituciones { display:block !important; margin:0 !important; }
+		body.print-sustituciones #lista-sustituciones table { width:100%; font-size:11pt !important; border-collapse:collapse; }
+		body.print-sustituciones #lista-sustituciones th, body.print-sustituciones #lista-sustituciones td { border:1px solid #000 !important; padding:6px 8px !important; vertical-align:top; }
+		body.print-sustituciones #lista-sustituciones th { background:#e5e7eb !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-size:11pt; }
+		body.print-sustituciones #lista-sustituciones td { min-width:160px; height:95px; }
+		/* --- Ajustes para forzar cabida en una sola hoja --- */
+		/* Calendario más compacto */
+		body.print-calendario #seccion-calendario .day-header { padding:6px 3px; font-size:0.62rem; }
+		/* Calendario: aumentar legibilidad (12pt base) y optimizar para 1 hoja */
+		body.print-calendario { font-size:12pt; line-height:1.18; }
+		body.print-calendario #seccion-calendario .day-cell { min-height:100px; padding:6px 5px; font-size:0.7rem; }
+		body.print-calendario #seccion-calendario .day-cell .day-number { font-size:0.68rem; font-weight:700; }
+		body.print-calendario #seccion-calendario .day-cell .activity-item { font-size:0.6rem; padding:2px 4px; }
+		body.print-calendario #seccion-calendario .activity-item.tipo-dentro { background:#dcfce7 !important; color:#166534 !important; }
+		body.print-calendario #seccion-calendario .activity-item.tipo-salida { background:#fef9c3 !important; color:#92400e !important; }
+		body.print-calendario #seccion-calendario .activity-item.tipo-otro { background:#e2e8f0 !important; color:#334155 !important; }
+		body.print-calendario #seccion-calendario .curso-tag { background:#1d4ed8 !important; color:#ffffff !important; }
+		body.print-calendario #seccion-calendario .calendar-grid { break-inside:avoid; page-break-inside:avoid; }
+		/* Escala global calendario para ajustar (compensa con ancho) */
+		/* Eliminar transform para evitar desbordes y saltos de página */
+		body.print-calendario #seccion-calendario { width:100%; transform:none !important; }
+		/* Tabla sustituciones más compacta */
+		body.print-sustituciones #lista-sustituciones table { font-size:10.5pt !important; }
+		body.print-sustituciones #lista-sustituciones th { font-size:10.5pt !important; padding:5px 7px !important; background:#1d4ed8 !important; color:#fff !important; font-weight:600; }
+		body.print-sustituciones #lista-sustituciones th:first-child { background:#0f3f96 !important; }
+		body.print-sustituciones #lista-sustituciones td { height:95px; padding:6px 7px !important; background:#ffffff; }
+		body.print-sustituciones { font-size:12pt; line-height:1.18; }
+		body.print-sustituciones #lista-sustituciones tbody tr:nth-child(even) td { background:#f1f5f9 !important; }
+		body.print-sustituciones #lista-sustituciones tbody tr:nth-child(odd) td { background:#ffffff !important; }
+		body.print-sustituciones #lista-sustituciones td:first-child { background:#f0f9ff !important; font-weight:600; }
+		body.print-sustituciones #lista-sustituciones td strong { color:#0f3f96; }
+		body.print-sustituciones #seccion-sustituciones { transform:none !important; width:100%; }
+		/* Eliminar sombras / bordes contenedor */
+		.app-container { width:100% !important; max-width:none !important; border:none !important; box-shadow:none !important; margin:0 !important; overflow:visible !important; }
+		main { padding:0 !important; margin:0 !important; }
+		/* Quitar cualquier scroll sobrante para impresión limpia */
+		::-webkit-scrollbar { display:none !important; }
+	}
         
 .day-header {
 	background-color: #f9fafb; /* gray-50 */
@@ -608,31 +702,44 @@ h2 {
 
 /* Responsive styles */
 @media (max-width: 768px) {
-	.app-container {
-		padding: 10px;
+	/* Tab bar inferior fija */
+	.nav-bar {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		background:#ffffff;
+		border-top:1px solid #e5e7eb;
+		padding:6px 4px;
+		justify-content: space-around;
+		z-index: 999;
+		box-shadow:0 -2px 10px rgba(0,0,0,.08);
+		transition: transform .35s ease;
 	}
-	main {
-		padding: 20px;
+	.nav-bar.nav-hidden { transform: translateY(110%); }
+	/* Estilos de colapsado eliminados */
+	.nav-bar button { color:#374151; background:transparent; margin:0; padding:6px 4px; flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; border-radius:8px; }
+	.nav-bar button.active { background:#f3f4f6; box-shadow:none; transform:none; }
+	.nav-bar button .badge-dot { top:4px; right:10px; box-shadow:0 0 0 2px #ffffff; }
+	.nav-bar button:hover { background:#f9fafb; transform:none; box-shadow:none; }
+	.nav-bar button .nav-icon svg { width:22px; height:22px; }
+	.nav-bar .nav-collapse-btn { flex:0 0 auto; background:#e5e7eb; color:#374151; font-size:.65rem; padding:4px 6px; border-radius:6px; margin-left:4px; }
+	.nav-bar .nav-collapse-btn:hover { background:#d1d5db; }
+	header { padding:16px 14px 10px; }
+	header h1 { font-size:1.1rem; }
+	.subtitle { display:none; }
+	.app-container { width:100%; max-width:none; border-radius:0; box-shadow:none; border:none; }
+	main { padding:18px 14px 80px; } /* espacio para tab bar */
+	/* Aumentar espacio inferior para que el contenido no quede tapado por la barra */
+	main { padding-bottom:120px; }
+	/* Ocultar texto debajo de iconos en pantallas muy estrechas para reducir altura */
+	@media (max-width: 430px){
+		.nav-bar button .nav-text { display:none; }
+		.nav-bar button { padding:8px 4px; }
 	}
-	.nav-bar button {
-		padding: 10px 15px;
-		font-size: 0.9rem;
-	}
-	.calendar-grid {
-		font-size: 0.8rem;
-	}
-	.day-number {
-		font-size: 1rem;
-	}
-	.day-cell {
-		min-height: 80px;
-		padding: 5px;
-	}
-	.activity-item {
-		font-size: 0.7rem;
-	}
-	.btn-accion {
-		padding: 10px 20px;
-		font-size: 1rem;
-	}
+	.btn-accion { font-size:.9rem; padding:10px 16px; border-radius:10px; }
+	.documentos-grid { grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
+	#btn-subir-documento { position:fixed; bottom:74px; right:16px; margin:0; box-shadow:0 4px 16px rgba(0,0,0,.25); z-index:1000; }
 }
+/* cierre media query */
+
