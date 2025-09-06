@@ -603,6 +603,15 @@ function renderizarActividades() {
 			}
 			const activityItem = document.createElement('div');
 			activityItem.className = 'activity-item';
+			// Colorear por tipo
+			if (act.tipo) {
+				const tipoNorm = (act.tipo || '').toString().toLowerCase();
+				if (['dentro','salida'].includes(tipoNorm)) {
+					activityItem.classList.add('tipo-' + tipoNorm);
+				} else if (tipoNorm.trim()) {
+					activityItem.classList.add('tipo-otro');
+				}
+			}
 			activityItem.dataset.id = act.id;
 			const titleSpan = document.createElement('span');
 			titleSpan.textContent = (act.title || '');
@@ -1014,12 +1023,27 @@ if (btnLoginGoogle) {
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			try {
 				await signInWithPopup(auth, provider);
+				console.log('[auth] Popup Google completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				console.warn('[auth] Error popup Google', code, e);
+				if (code.includes('popup-closed-by-user')) {
+					alert('Cerraste la ventana de Google antes de finalizar. Intenta de nuevo.');
+					return;
+				}
+				if (code.includes('unauthorized-domain')) {
+					alert('Dominio no autorizado en Firebase Auth. Añádelo en Authentication > Settings > Authorized domains.');
+					return;
+				}
+				if (code.includes('operation-not-allowed')) {
+					alert('Proveedor Google no habilitado. Actívalo en Firebase Authentication > Sign-in method.');
+					return;
+				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'google');
 					await signInWithRedirect(auth, provider);
 				} else {
+					alert('No se pudo iniciar sesión con Google ('+code+'). Revisa consola o configura redirect.');
 					throw e;
 				}
 			}
@@ -1038,12 +1062,27 @@ if (btnLoginMs) {
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			try {
 				await signInWithPopup(auth, provider);
+				console.log('[auth] Popup Microsoft completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
 			} catch (e) {
 				const code = e && e.code ? String(e.code) : '';
+				console.warn('[auth] Error popup Microsoft', code, e);
+				if (code.includes('popup-closed-by-user')) {
+					alert('Cerraste la ventana de Microsoft antes de finalizar. Intenta de nuevo.');
+					return;
+				}
+				if (code.includes('unauthorized-domain')) {
+					alert('Dominio no autorizado en Firebase Auth. Añádelo en Authentication > Settings > Authorized domains.');
+					return;
+				}
+				if (code.includes('operation-not-allowed')) {
+					alert('Proveedor Microsoft no habilitado. Actívalo en Firebase Authentication > Sign-in method.');
+					return;
+				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
 					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 					await signInWithRedirect(auth, provider);
 				} else {
+					alert('No se pudo iniciar sesión con Microsoft ('+code+'). Revisa consola o configura redirect.');
 					throw e;
 				}
 			}
