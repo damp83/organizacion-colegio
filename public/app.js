@@ -1021,6 +1021,13 @@ if (btnLoginGoogle) {
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
+			// Si modo forzado redirect
+			if (AUTH_MODE === 'redirect') {
+				console.log('[auth] Usando redirect directo (AUTH_MODE=redirect) Google');
+				localStorage.setItem(LS_REDIRECT_MARK, 'google');
+				await signInWithRedirect(auth, provider);
+				return;
+			}
 			try {
 				await signInWithPopup(auth, provider);
 				console.log('[auth] Popup Google completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
@@ -1028,8 +1035,11 @@ if (btnLoginGoogle) {
 				const code = e && e.code ? String(e.code) : '';
 				console.warn('[auth] Error popup Google', code, e);
 				if (code.includes('popup-closed-by-user')) {
-					alert('Cerraste la ventana de Google antes de finalizar. Intenta de nuevo.');
-					return;
+					// Algunos navegadores devuelven esto aunque se cierre automáticamente. Reintentamos con redirect.
+					console.log('[auth] Fallback redirect tras popup-closed-by-user (Google)');
+					localStorage.setItem(LS_REDIRECT_MARK, 'google');
+					await signInWithRedirect(auth, provider);
+					return; 
 				}
 				if (code.includes('unauthorized-domain')) {
 					alert('Dominio no autorizado en Firebase Auth. Añádelo en Authentication > Settings > Authorized domains.');
@@ -1060,6 +1070,12 @@ if (btnLoginMs) {
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
+			if (AUTH_MODE === 'redirect') {
+				console.log('[auth] Usando redirect directo (AUTH_MODE=redirect) Microsoft');
+				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+				await signInWithRedirect(auth, provider);
+				return;
+			}
 			try {
 				await signInWithPopup(auth, provider);
 				console.log('[auth] Popup Microsoft completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
@@ -1067,7 +1083,9 @@ if (btnLoginMs) {
 				const code = e && e.code ? String(e.code) : '';
 				console.warn('[auth] Error popup Microsoft', code, e);
 				if (code.includes('popup-closed-by-user')) {
-					alert('Cerraste la ventana de Microsoft antes de finalizar. Intenta de nuevo.');
+					console.log('[auth] Fallback redirect tras popup-closed-by-user (Microsoft)');
+					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+					await signInWithRedirect(auth, provider);
 					return;
 				}
 				if (code.includes('unauthorized-domain')) {
