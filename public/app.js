@@ -955,6 +955,13 @@ async function initializeAppClient() {
 				if (btnLogout) btnLogout.style.display = 'none';
 				if (btnLoginGoogle) btnLoginGoogle.style.display = 'inline-block';
 				if (btnLoginMs) btnLoginMs.style.display = 'inline-block';
+				// Creamos sesión anónima para poder inicializar listeners y permitir upgrade a proveedor
+				try {
+					await signInAnonymously(auth);
+					console.log('[auth] Sesión anónima creada tras logout manual para facilitar nuevo login.');
+				} catch(e){
+					console.warn('[auth] No se pudo crear sesión anónima tras logout manual:', e?.code);
+				}
 				return;
 			}
 
@@ -1009,6 +1016,7 @@ if (btnLogout) {
 if (btnLoginGoogle) {
 	btnLoginGoogle.addEventListener('click', async () => {
 		try {
+			console.log('[auth][google] Click login Google');
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
@@ -1040,6 +1048,7 @@ if (btnLoginGoogle) {
 if (btnLoginMs) {
 	btnLoginMs.addEventListener('click', async () => {
 		try {
+			console.log('[auth][microsoft] Click login Microsoft');
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
