@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, signInWithCustomToken, onAuthStateChanged, connectAuthEmulator, getIdTokenResult, signOut, GoogleAuthProvider, OAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel, connectFirestoreEmulator, getDocs } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 // Eliminado Firebase Storage: se usará Firestore con base64 para archivos pequeños
 
@@ -26,7 +26,8 @@ try {
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 // Modo de autenticación preferido: 'redirect' elimina los warnings de popups
 // Cambiamos a 'popup' por defecto porque el redirect no devuelve resultado en tu entorno
-const AUTH_MODE = (typeof window !== 'undefined' && window.__auth_mode) ? String(window.__auth_mode) : 'popup';
+// Forzamos redirect (popup daba cierre inmediato)
+const AUTH_MODE = 'redirect';
 
 // Referencias a elementos del DOM
 const navButtons = document.querySelectorAll('.nav-bar button');
@@ -863,6 +864,7 @@ async function initializeAppClient() {
     
 	const app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
+	try { await setPersistence(auth, browserLocalPersistence); console.log('[auth] Persistence local establecida'); } catch(e){ console.warn('[auth] No se pudo fijar persistence', e); }
 	db = getFirestore(app);
 	// storage eliminado
 
@@ -1036,96 +1038,28 @@ if (btnLogout) {
 if (btnLoginGoogle) {
 	btnLoginGoogle.addEventListener('click', async () => {
 		try {
+			console.log('[auth][google] redirect');
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
-			// Si modo forzado redirect
-			if (AUTH_MODE === 'redirect') {
-				console.log('[auth] Usando redirect directo (AUTH_MODE=redirect) Google');
-				localStorage.setItem(LS_REDIRECT_MARK, 'google');
-				await signInWithRedirect(auth, provider);
-				return;
-			}
-			try {
-				await signInWithPopup(auth, provider);
-				console.log('[auth] Popup Google completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
-			} catch (e) {
-				const code = e && e.code ? String(e.code) : '';
-				console.warn('[auth] Error popup Google', code, e);
-				if (code.includes('popup-closed-by-user')) {
-					// Algunos navegadores devuelven esto aunque se cierre automáticamente. Reintentamos con redirect.
-					console.log('[auth] Fallback redirect tras popup-closed-by-user (Google)');
-					localStorage.setItem(LS_REDIRECT_MARK, 'google');
-					await signInWithRedirect(auth, provider);
-					return; 
-				}
-				if (code.includes('unauthorized-domain')) {
-					alert('Dominio no autorizado en Firebase Auth. Añádelo en Authentication > Settings > Authorized domains.');
-					return;
-				}
-				if (code.includes('operation-not-allowed')) {
-					alert('Proveedor Google no habilitado. Actívalo en Firebase Authentication > Sign-in method.');
-					return;
-				}
-				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					localStorage.setItem(LS_REDIRECT_MARK, 'google');
-					await signInWithRedirect(auth, provider);
-				} else {
-					alert('No se pudo iniciar sesión con Google ('+code+'). Revisa consola o configura redirect.');
-					throw e;
-				}
-			}
-		} catch (e) {
-			console.error('Error al iniciar con Google', e);
-		}
+			localStorage.setItem(LS_REDIRECT_MARK, 'google');
+			await signInWithRedirect(auth, provider);
+		} catch(e){ console.error('[auth][google] fallo redirect', e); }
 	});
 }
 
 if (btnLoginMs) {
 	btnLoginMs.addEventListener('click', async () => {
 		try {
+			console.log('[auth][microsoft] redirect');
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
-			if (AUTH_MODE === 'redirect') {
-				console.log('[auth] Usando redirect directo (AUTH_MODE=redirect) Microsoft');
-				localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-				await signInWithRedirect(auth, provider);
-				return;
-			}
-			try {
-				await signInWithPopup(auth, provider);
-				console.log('[auth] Popup Microsoft completado. Usuario actual:', auth.currentUser?.uid, auth.currentUser?.email, 'isAnonymous=', auth.currentUser?.isAnonymous);
-			} catch (e) {
-				const code = e && e.code ? String(e.code) : '';
-				console.warn('[auth] Error popup Microsoft', code, e);
-				if (code.includes('popup-closed-by-user')) {
-					console.log('[auth] Fallback redirect tras popup-closed-by-user (Microsoft)');
-					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-					await signInWithRedirect(auth, provider);
-					return;
-				}
-				if (code.includes('unauthorized-domain')) {
-					alert('Dominio no autorizado en Firebase Auth. Añádelo en Authentication > Settings > Authorized domains.');
-					return;
-				}
-				if (code.includes('operation-not-allowed')) {
-					alert('Proveedor Microsoft no habilitado. Actívalo en Firebase Authentication > Sign-in method.');
-					return;
-				}
-				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
-					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
-					await signInWithRedirect(auth, provider);
-				} else {
-					alert('No se pudo iniciar sesión con Microsoft ('+code+'). Revisa consola o configura redirect.');
-					throw e;
-				}
-			}
-		} catch (e) {
-			console.error('Error al iniciar con Microsoft', e);
-		}
+			localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
+			await signInWithRedirect(auth, provider);
+		} catch(e){ console.error('[auth][microsoft] fallo redirect', e); }
 	});
 }
 
