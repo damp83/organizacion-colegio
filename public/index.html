@@ -121,12 +121,75 @@
       <!-- Sección de Sustituciones -->
       <section id="seccion-sustituciones" class="seccion">
         <h2>Gestión de Sustituciones</h2>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-curso" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar curso</label>
+            <input type="text" id="filtro-sust-curso" placeholder="Ej: 3º Primaria A" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-asig" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar asignatura</label>
+            <input type="text" id="filtro-sust-asig" placeholder="Ej: Matemáticas" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <button id="filtro-sust-clear" class="btn-accion" style="height:34px; font-size:0.7rem;">Limpiar</button>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2; max-width:220px;">Los filtros se aplican en vivo sobre la lista.</small>
+        </div>
         <form id="form-sustituciones" class="agenda-form" style="margin-bottom:18px;">
+          <input type="hidden" id="sustitucion-id" />
           <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
             <input type="text" id="sustitucion-sustituto" placeholder="Maestro que sustituye" required>
-            <input type="text" id="sustitucion-curso" placeholder="Curso" required>
-            <input type="text" id="sustitucion-asignatura" placeholder="Asignatura" required>
-            <input type="text" id="sustitucion-hora" placeholder="Hora" required>
+            <!-- Curso -->
+            <select id="sustitucion-curso" required title="Curso">
+              <option value="" disabled selected>Curso</option>
+              <optgroup label="Infantil">
+                <option value="Infantil 3 A">Infantil 3 A</option>
+                <option value="Infantil 3 B">Infantil 3 B</option>
+                <option value="Infantil 4 A">Infantil 4 A</option>
+                <option value="Infantil 4 B">Infantil 4 B</option>
+                <option value="Infantil 5 A">Infantil 5 A</option>
+                <option value="Infantil 5 B">Infantil 5 B</option>
+              </optgroup>
+              <optgroup label="Primaria">
+                <option value="1º Primaria A">1º Primaria A</option>
+                <option value="1º Primaria B">1º Primaria B</option>
+                <option value="2º Primaria A">2º Primaria A</option>
+                <option value="2º Primaria B">2º Primaria B</option>
+                <option value="3º Primaria A">3º Primaria A</option>
+                <option value="3º Primaria B">3º Primaria B</option>
+                <option value="4º Primaria A">4º Primaria A</option>
+                <option value="4º Primaria B">4º Primaria B</option>
+                <option value="5º Primaria A">5º Primaria A</option>
+                <option value="5º Primaria B">5º Primaria B</option>
+                <option value="6º Primaria A">6º Primaria A</option>
+                <option value="6º Primaria B">6º Primaria B</option>
+              </optgroup>
+            </select>
+            <!-- Asignatura -->
+            <select id="sustitucion-asignatura" required title="Asignatura">
+              <option value="" disabled selected>Asignatura</option>
+              <option value="Lengua">Lengua</option>
+              <option value="Matemáticas">Matemáticas</option>
+              <option value="Inglés">Inglés</option>
+              <option value="Profundización Educativa">Profundización Educativa</option>
+              <option value="Religión">Religión</option>
+              <option value="Atención Educativa">Atención Educativa</option>
+              <option value="Valores">Valores</option>
+              <option value="Educación Física">Educación Física</option>
+              <option value="Plástica">Plástica</option>
+              <option value="Ciencias Sociales">Ciencias Sociales</option>
+              <option value="Ciencias Naturales">Ciencias Naturales</option>
+              <option value="Francés">Francés</option>
+              <option value="Música">Música</option>
+            </select>
+            <!-- Hora (intervalo) -->
+            <div style="display:flex; gap:4px; align-items:center;">
+              <select id="sustitucion-hora-inicio" required title="Hora inicio" style="flex:1;">
+                <option value="" disabled selected>Inicio</option>
+              </select>
+              <span style="font-size:0.7rem; color:#555;">-</span>
+              <select id="sustitucion-hora-fin" required title="Hora fin" style="flex:1;">
+                <option value="" disabled selected>Fin</option>
+              </select>
+            </div>
           </div>
           <textarea id="sustitucion-instrucciones" placeholder="Instrucciones para la sustitución" rows="4" style="margin-top:10px;"></textarea>
           <div style="margin-top:12px; display:flex; justify-content:flex-end;">

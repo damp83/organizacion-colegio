@@ -47,6 +47,10 @@ const listaAgenda=document.getElementById('lista-agenda');
 // Sustituciones
 const formSustituciones=document.getElementById('form-sustituciones');
 const listaSustituciones=document.getElementById('lista-sustituciones');
+const inputSustId=document.getElementById('sustitucion-id');
+const filtroSustCurso=document.getElementById('filtro-sust-curso');
+const filtroSustAsig=document.getElementById('filtro-sust-asig');
+const filtroSustClear=document.getElementById('filtro-sust-clear');
 const modalConfirmacion=document.getElementById('modal-confirmacion');
 const btnConfirmar=document.getElementById('btn-confirmar');
 const btnCancelar=document.getElementById('btn-cancelar');
@@ -86,8 +90,8 @@ if(menuToggle && navBar){
 }
 
 // Indicadores nuevos
-let lastSeen={ anuncios:0, agenda:0, actividades:0 }; try{ const s=localStorage.getItem('lastSeenIndicators'); if(s){ const p=JSON.parse(s); if(p) lastSeen={...lastSeen,...p}; }}catch{}
-const latestMax={ anuncios:0, agenda:0, actividades:0 };
+let lastSeen={ anuncios:0, agenda:0, actividades:0, sustituciones:0 }; // updated to include sustituciones
+const latestMax={ anuncios:0, agenda:0, actividades:0, sustituciones:0 }; // updated
 const saveLastSeen=()=>{ try{localStorage.setItem('lastSeenIndicators',JSON.stringify(lastSeen));}catch{} };
 const marcarNuevos=(tipo,docs)=>{ try{ const max=docs.reduce((m,d)=>d.timestamp?Math.max(m,d.timestamp):m,0); if(max>latestMax[tipo]) latestMax[tipo]=max; if(max && max>(lastSeen[tipo]||0)){ const btn=document.getElementById(`btn-${tipo}`); const visible=document.getElementById(`seccion-${tipo}`)?.classList.contains('active'); if(btn && !visible) btn.classList.add('has-unread'); lastSeen[tipo]=max; saveLastSeen(); } }catch{} };
 
@@ -124,38 +128,38 @@ function renderizarDocumentos(docs){ documentosGrid.innerHTML=''; if(!docs.lengt
 function renderizarAnuncios(list){ listaAnuncios.innerHTML=''; if(!list.length){ listaAnuncios.innerHTML='<p class="loading-message">No hay anuncios</p>'; return; } list.forEach(a=>{ const item=document.createElement('div'); item.className='anuncio-item'; const span=document.createElement('span'); span.textContent=a.texto||''; item.appendChild(span); if(canWrite && (isAdmin||(a.createdBy?a.createdBy===userId:true))){ const b=document.createElement('button'); b.className='btn-accion eliminar'; b.dataset.id=a.id; b.textContent='Eliminar'; b.style.marginLeft='auto'; item.appendChild(b);} listaAnuncios.appendChild(item); }); }
 function renderizarAgenda(items){ items.sort((a,b)=>new Date(a.date)-new Date(b.date)); listaAgenda.innerHTML=''; if(!items.length){ listaAgenda.innerHTML='<p class="loading-message">No hay reuniones</p>'; return; } items.forEach(it=>{ const cont=document.createElement('div'); cont.className='agenda-item'; const h=document.createElement('div'); h.className='item-header'; const t=document.createElement('h4'); t.textContent=it.title||''; const actions=document.createElement('div'); actions.className='actions'; const badge=document.createElement('span'); badge.className='status-badge'; badge.textContent=it.status||''; actions.appendChild(badge); const canManage=canWrite && (isAdmin||(it.createdBy?it.createdBy===userId:true)); if(canManage){ const e=document.createElement('button'); e.className='btn-accion editar'; e.dataset.id=it.id; e.textContent='Editar'; const d=document.createElement('button'); d.className='btn-accion eliminar'; d.dataset.id=it.id; d.textContent='Eliminar'; actions.append(e,d);} h.append(t,actions); const pf=document.createElement('p'); pf.innerHTML=`<strong>Fecha:</strong> ${it.date||''}`; const pd=document.createElement('p'); pd.innerHTML=`<strong>Descripción:</strong> ${it.description||''}`; cont.append(h,pf,pd); if(it.documento){ try{ const url=new URL(it.documento); const p=document.createElement('p'); p.innerHTML=`<strong>Documento:</strong> <a target="_blank" href="${url.href}">Ver</a>`; cont.appendChild(p);}catch{} } listaAgenda.appendChild(cont); }); }
 // Sustituciones
+let cacheSustituciones=[];
+function filtroSust(it){
+  const fc=(filtroSustCurso?.value||'').trim().toLowerCase();
+  const fa=(filtroSustAsig?.value||'').trim().toLowerCase();
+  if(fc && !(it.curso||'').toLowerCase().includes(fc)) return false;
+  if(fa && !(it.asignatura||'').toLowerCase().includes(fa)) return false;
+  return true;
+}
 function renderizarSustituciones(items){
-	listaSustituciones.innerHTML='';
-	if(!items.length){
-		listaSustituciones.innerHTML='<p class="loading-message">No hay sustituciones registradas.</p>';
-		return;
-	}
-	// Ordenar por timestamp descendente (recientes primero)
-	items.sort((a,b)=> (b.timestamp||0)-(a.timestamp||0));
-	items.forEach(it=>{
-		const cont=document.createElement('div');
-		cont.className='agenda-item';
-		const header=document.createElement('div');
-		header.className='item-header';
-		const h4=document.createElement('h4');
-		h4.textContent=`${it.sustituto||''} → ${it.curso||''}`;
-		const actions=document.createElement('div');
-		actions.className='actions';
-		const spanHora=document.createElement('span'); spanHora.className='status-badge'; spanHora.textContent=it.hora||''; actions.appendChild(spanHora);
-		const canManage=canWrite && (isAdmin||(it.createdBy?it.createdBy===userId:true));
-		if(canManage){
-			const del=document.createElement('button');
-			del.className='btn-accion eliminar';
-			del.dataset.id=it.id;
-			del.textContent='Eliminar';
-			actions.appendChild(del);
-		}
-		header.append(h4,actions);
-		const pAsig=document.createElement('p'); pAsig.innerHTML=`<strong>Asignatura:</strong> ${it.asignatura||''}`;
-		const pInstr=document.createElement('p'); pInstr.innerHTML=`<strong>Instrucciones:</strong> ${(it.instrucciones||'').replace(/</g,'&lt;')}`;
-		cont.append(header,pAsig,pInstr);
-		listaSustituciones.appendChild(cont);
-	});
+  cacheSustituciones=items.slice();
+  const lista=items.filter(filtroSust).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+  if(!listaSustituciones) return;
+  listaSustituciones.innerHTML='';
+  if(!lista.length){ listaSustituciones.innerHTML='<p class="loading-message">No hay sustituciones registradas.</p>'; return; }
+  lista.forEach(it=>{
+    const cont=document.createElement('div'); cont.className='agenda-item';
+    const header=document.createElement('div'); header.className='item-header';
+    const h4=document.createElement('h4'); h4.textContent=`${it.sustituto||''} → ${it.curso||''}`;
+    const actions=document.createElement('div'); actions.className='actions';
+    const spanHora=document.createElement('span'); spanHora.className='status-badge'; spanHora.textContent=it.hora||''; actions.appendChild(spanHora);
+    const canManage=canWrite && (isAdmin||(it.createdBy?it.createdBy===userId:true));
+    if(canManage){
+      const edit=document.createElement('button'); edit.className='btn-accion editar'; edit.dataset.id=it.id; edit.textContent='Editar'; actions.appendChild(edit);
+      const del=document.createElement('button'); del.className='btn-accion eliminar'; del.dataset.id=it.id; del.textContent='Eliminar'; actions.appendChild(del);
+    }
+    header.append(h4,actions);
+    const pAsig=document.createElement('p'); pAsig.innerHTML=`<strong>Asignatura:</strong> ${it.asignatura||''}`;
+    const instruccionesSafe=(it.instrucciones||'').replace(/</g,'&lt;');
+    const pInstr=document.createElement('p'); pInstr.innerHTML=`<strong>Instrucciones:</strong> ${instruccionesSafe}`;
+    cont.append(header,pAsig,pInstr);
+    listaSustituciones.appendChild(cont);
+  });
 }
 function renderizarCalendario(){ const year=currentDate.getFullYear(); const month=currentDate.getMonth(); monthYearDisplay.textContent=new Date(year,month).toLocaleString('es-ES',{month:'long',year:'numeric'}); calendarGrid.querySelectorAll('.day-cell,.other-month').forEach(c=>c.remove()); const first=new Date(year,month,1); const last=new Date(year,month+1,0); const offset=(first.getDay()+6)%7; for(let i=0;i<offset;i++){ const e=document.createElement('div'); e.className='day-cell other-month'; calendarGrid.appendChild(e);} for(let d=1; d<=last.getDate(); d++){ const cell=document.createElement('div'); cell.className='day-cell'; cell.dataset.date=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; cell.innerHTML=`<span class='day-number'>${d}</span>`; calendarGrid.appendChild(cell);} document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); }
 function renderizarActividades(){ const filtro=filtroCursosSelect?[...filtroCursosSelect.selectedOptions].map(o=>o.value):[]; document.querySelectorAll('.day-cell').forEach(cell=>{ [...cell.querySelectorAll('.activity-item')].forEach(a=>a.remove()); (cell.activities||[]).forEach(act=>{ if(filtro.length){ const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(!cs.some(c=>filtro.includes(c))) return; } const item=document.createElement('div'); item.className='activity-item'; const tipo=(act.tipo||'').toLowerCase(); if(['dentro','salida'].includes(tipo)) item.classList.add('tipo-'+tipo); else if(tipo) item.classList.add('tipo-otro'); item.dataset.id=act.id; const tt=document.createElement('span'); tt.textContent=act.title||''; item.appendChild(tt); const cs=Array.isArray(act.curso)?act.curso:(act.curso?[act.curso]:[]); if(cs.length){ const wrap=document.createElement('div'); wrap.className='curso-tags'; cs.slice(0,2).forEach(c=>{ const s=document.createElement('span'); s.className='curso-tag'; s.textContent=abreviarCurso(c); wrap.appendChild(s); }); if(cs.length>2){ const extra=document.createElement('span'); extra.className='curso-tag out'; extra.textContent='+'+(cs.length-2); wrap.appendChild(extra);} item.appendChild(wrap);} const canManage=canWrite && (isAdmin||(act.createdBy?act.createdBy===userId:true)); if(canManage){ const del=document.createElement('button'); del.className='delete-btn'; del.textContent='×'; del.dataset.id=act.id; item.appendChild(del); item.setAttribute('draggable','true'); item.addEventListener('dragstart',ev=>{ try{ev.dataTransfer.effectAllowed='move';}catch{} dragActivity=act; dragSourceDate=cell.dataset.date; item.classList.add('dragging'); }); item.addEventListener('dragend',()=>{ dragActivity=null; dragSourceDate=null; item.classList.remove('dragging'); document.querySelectorAll('.day-cell.drag-over').forEach(c=>c.classList.remove('drag-over')); }); } cell.appendChild(item); }); }); }
@@ -167,7 +171,7 @@ function setupFirestoreListeners(){
  onSnapshot(getPublicCollection('actividades'),qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); });
  onSnapshot(getPublicCollection('agenda'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); });
 	// Sustituciones
-	onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); });
+	onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); });
 }
 
 // Navegación
@@ -209,31 +213,70 @@ formSustituciones?.addEventListener('submit',async e=>{
 	e.preventDefault();
 	if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
 	const sustituto=document.getElementById('sustitucion-sustituto').value.trim();
-	const curso=document.getElementById('sustitucion-curso').value.trim();
-	const asignatura=document.getElementById('sustitucion-asignatura').value.trim();
-	const hora=document.getElementById('sustitucion-hora').value.trim();
+  const curso=document.getElementById('sustitucion-curso').value.trim();
+  const asignatura=document.getElementById('sustitucion-asignatura').value.trim();
+  const inicio=document.getElementById('sustitucion-hora-inicio').value.trim();
+  const fin=document.getElementById('sustitucion-hora-fin').value.trim();
+  let hora='';
+  if(inicio && fin){ hora=`${inicio}-${fin}`; }
 	const instrucciones=document.getElementById('sustitucion-instrucciones').value.trim();
 	if(!sustituto||!curso||!asignatura||!hora){ return; }
 	console.debug('DEBUG sustitucion submit',{
 		userId,
 		userEmail: auth?.currentUser?.email,
 		canWrite,
-		data:{sustituto,curso,asignatura,hora,instrucciones}
+		data:{sustituto,curso,asignatura,hora,instrucciones},
+		edit:!!inputSustId.value
 	});
 	try{
-		await addDoc(getPublicCollection('sustituciones'),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
-		formSustituciones.reset();
+		const existing=inputSustId.value;
+    if(existing){
+      await updateDoc(doc(getPublicCollection('sustituciones'),existing),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
+    } else {
+      await addDoc(getPublicCollection('sustituciones'),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
+    }
+    formSustituciones.reset(); inputSustId.value='';
+    // Reset selects placeholder (because reset may not restore first disabled option in some browsers)
+    try{
+      document.getElementById('sustitucion-curso').selectedIndex=0;
+      document.getElementById('sustitucion-asignatura').selectedIndex=0;
+      document.getElementById('sustitucion-hora-inicio').selectedIndex=0;
+      document.getElementById('sustitucion-hora-fin').selectedIndex=0;
+    }catch{}
 	}catch(err){
 		console.error('Error add sustitucion',err);
 		alert('Error guardando sustitución: '+(err?.code||''));
 	}
 });
 listaSustituciones?.addEventListener('click',e=>{
-	if(e.target.classList.contains('eliminar')){
-		if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
-		const id=e.target.dataset.id;
-		showConfirmation('¿Eliminar sustitución?', async()=>{ await deleteDoc(doc(getPublicCollection('sustituciones'),id)); });
-	}
+  if(e.target.classList.contains('eliminar')){
+    if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
+    const id=e.target.dataset.id;
+    showConfirmation('¿Eliminar sustitución?', async()=>{ await deleteDoc(doc(getPublicCollection('sustituciones'),id)); });
+  }
+  if(e.target.classList.contains('editar')){
+    if(!requireAuth()||!canWrite){ alert('Sin permisos'); return; }
+    const id=e.target.dataset.id;
+    const it=cacheSustituciones.find(x=>x.id===id);
+    if(!it) return;
+    inputSustId.value=it.id;
+    document.getElementById('sustitucion-sustituto').value=it.sustituto||'';
+    document.getElementById('sustitucion-curso').value=it.curso||'';
+    document.getElementById('sustitucion-asignatura').value=it.asignatura||'';
+    // Parse hora interval if present
+    try{
+      if(it.hora && it.hora.includes('-')){
+        const [ini,fin]=it.hora.split('-');
+        document.getElementById('sustitucion-hora-inicio').value=ini.trim();
+        document.getElementById('sustitucion-hora-fin').value=fin.trim();
+      } else {
+        document.getElementById('sustitucion-hora-inicio').selectedIndex=0;
+        document.getElementById('sustitucion-hora-fin').selectedIndex=0;
+      }
+    }catch{}
+    document.getElementById('sustitucion-instrucciones').value=it.instrucciones||'';
+    try{ formSustituciones.scrollIntoView({behavior:'smooth',block:'start'});}catch{}
+  }
 });
 
 // Confirmación
@@ -245,7 +288,7 @@ window.addEventListener('click',e=>{ if(e.target===modalConfirmacion){ modalConf
 
 // Auth init
 async function initAuth(){ if(location.protocol==='file:'){ alert('Abra mediante un servidor HTTP/HTTPS'); return; } if(!firebaseConfig.apiKey){ userDisplay.textContent='Config Firebase faltante'; return; } const app=initializeApp(firebaseConfig); auth=getAuth(app); try{ await setPersistence(auth,browserLocalPersistence); }catch{} db=getFirestore(app); try{ const rr=await getRedirectResult(auth); if(rr) localStorage.removeItem(LS_REDIRECT_MARK); lastRedirectResultChecked=true; }catch{} const useEmu=(location.hostname==='localhost'||location.hostname==='127.0.0.1'); if(useEmu){ try{connectAuthEmulator(auth,'http://localhost:9099');}catch{} try{connectFirestoreEmulator(db,'localhost',8080);}catch{} }
- onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; try{ const tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(btnLoginMs) btnLoginMs.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); btnLoginMs&&(btnLoginMs.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); btnLoginMs&&(btnLoginMs.style.display='inline-block'); });
+onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(btnLoginMs) btnLoginMs.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); btnLoginMs&&(btnLoginMs.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); btnLoginMs&&(btnLoginMs.style.display='inline-block'); });
 }
 
 // Login/Logout
@@ -254,7 +297,44 @@ btnLoginGoogle?.addEventListener('click',async()=>{ if(btnLoginGoogle.disabled) 
 btnLoginMs?.addEventListener('click',async()=>{ if(btnLoginMs.disabled) return; didManualLogout=false; const provider=new OAuthProvider('microsoft.com'); provider.setCustomParameters({ prompt:'select_account' }); lastLoginAttempt={ provider:'microsoft', ts:Date.now() }; try{ if(AUTH_MODE==='popup'){ await signInWithPopup(auth,provider); } else { localStorage.setItem(LS_REDIRECT_MARK,'microsoft'); await signInWithRedirect(auth,provider); } }catch(e){ const code=e?.code||''; if(code.includes('popup-blocked')||code.includes('popup-closed-by-user')){ try{ btnLoginMs.disabled=true; btnLoginMs.textContent='Redirigiendo...'; localStorage.setItem(LS_REDIRECT_MARK,'microsoft'); await signInWithRedirect(auth,provider); }catch{} } } });
 
 // Accesibilidad (Escape)
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(modalDocumento?.style.display==='flex'){ modalDocumento.style.display='none'; modalDocumento.setAttribute('aria-hidden','true'); formDocumento.reset(); } if(modalConfirmacion?.style.display==='flex'){ modalConfirmacion.style.display='none'; modalConfirmacion.setAttribute('aria-hidden','true'); confirmationCallback=null; } if(modalActividad?.style.display==='flex'){ cerrarModalActividad(); } if(modalActividadDetalle?.style.display==='flex'){ cerrarModalActividadDetalle(); } }});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(modalDocumento?.style.display==='flex'){
+      modalDocumento.style.display='none';
+      modalDocumento.setAttribute('aria-hidden','true');
+      formDocumento.reset();
+    }
+    if(modalConfirmacion?.style.display==='flex'){
+      modalConfirmacion.style.display='none';
+      modalConfirmacion.setAttribute('aria-hidden','true');
+      confirmationCallback=null;
+    }
+    if(modalActividad?.style.display==='flex') cerrarModalActividad();
+    if(modalActividadDetalle?.style.display==='flex') cerrarModalActividadDetalle();
+  }
+});
+
+// Inicializar opciones de horas (intervalos de 30 min 08:30-17:00 por ejemplo)
+(function initHorasSustituciones(){
+  const selIni=document.getElementById('sustitucion-hora-inicio');
+  const selFin=document.getElementById('sustitucion-hora-fin');
+  if(!selIni||!selFin) return;
+  // Si ya hay más de la opción placeholder, no repetir
+  if(selIni.options.length>1) return;
+  const generarSlots=(inicio,fin,stepMin)=>{ // HH:MM strings
+    const out=[];
+    const toMins=s=>{ const [h,m]=s.split(':').map(Number); return h*60+m; };
+    for(let t=toMins(inicio); t<=toMins(fin); t+=stepMin){
+      const h=Math.floor(t/60).toString().padStart(2,'0');
+      const m=(t%60).toString().padStart(2,'0');
+      out.push(`${h}:${m}`);
+    }
+    return out;
+  };
+  const slots=generarSlots('08:30','17:00',30);
+  slots.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selIni.appendChild(o.cloneNode(true)); });
+  slots.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selFin.appendChild(o.cloneNode(true)); });
+})();
 
 // Helpers
 function requireAuth(){ if(!auth||!auth.currentUser){ alert('Inicia sesión'); return false; } return true; }
