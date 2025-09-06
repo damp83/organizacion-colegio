@@ -916,8 +916,8 @@ async function initializeAppClient() {
 			seedDemoDataIfRequested();
 			// Resetear bandera de logout manual una vez haya sesión
 			didManualLogout = false;
-			// Fallback: si intentamos login con redirect y seguimos anónimos, probar popup una vez
-			if (user.isAnonymous && lastLoginAttempt && !triedPopupFallback) {
+			// Fallback: solo si el último intento fue por redirect (no forzar doble popup tras cancelar)
+			if (user.isAnonymous && lastLoginAttempt && lastLoginAttempt.via === 'redirect' && !triedPopupFallback) {
 				const elapsed = Date.now() - lastLoginAttempt.ts;
 				if (elapsed < 15000) {
 					if (lastLoginAttempt.provider === 'google') {
@@ -1012,7 +1012,7 @@ if (btnLoginGoogle) {
 			didManualLogout = false;
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'google', ts: Date.now() };
+			lastLoginAttempt = { provider: 'google', ts: Date.now(), via: 'popup' };
 			try {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
@@ -1024,6 +1024,7 @@ if (btnLoginGoogle) {
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					lastLoginAttempt.via = 'redirect';
 					localStorage.setItem(LS_REDIRECT_MARK, 'google');
 					await signInWithRedirect(auth, provider);
 					return;
@@ -1042,7 +1043,7 @@ if (btnLoginMs) {
 			didManualLogout = false;
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
-			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
+			lastLoginAttempt = { provider: 'microsoft', ts: Date.now(), via: 'popup' };
 			try {
 				await signInWithPopup(auth, provider);
 			} catch (e) {
@@ -1053,6 +1054,7 @@ if (btnLoginMs) {
 					return;
 				}
 				if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+					lastLoginAttempt.via = 'redirect';
 					localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 					await signInWithRedirect(auth, provider);
 					return;
