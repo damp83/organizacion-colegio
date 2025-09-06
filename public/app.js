@@ -90,8 +90,8 @@ if(menuToggle && navBar){
 }
 
 // Indicadores nuevos
-let lastSeen={ anuncios:0, agenda:0, actividades:0, sustituciones:0 }; // updated to include sustituciones
-const latestMax={ anuncios:0, agenda:0, actividades:0, sustituciones:0 }; // updated
+let lastSeen={ anuncios:0, agenda:0, actividades:0, sustituciones:0, encuestas:0 }; // include encuestas
+const latestMax={ anuncios:0, agenda:0, actividades:0, sustituciones:0, encuestas:0 }; // include encuestas
 const saveLastSeen=()=>{ try{localStorage.setItem('lastSeenIndicators',JSON.stringify(lastSeen));}catch{} };
 const marcarNuevos=(tipo,docs)=>{ try{ const max=docs.reduce((m,d)=>d.timestamp?Math.max(m,d.timestamp):m,0); if(max>latestMax[tipo]) latestMax[tipo]=max; if(max && max>(lastSeen[tipo]||0)){ const btn=document.getElementById(`btn-${tipo}`); const visible=document.getElementById(`seccion-${tipo}`)?.classList.contains('active'); if(btn && !visible) btn.classList.add('has-unread'); lastSeen[tipo]=max; saveLastSeen(); } }catch{} };
 
@@ -215,8 +215,265 @@ function setupFirestoreListeners(){
  onSnapshot(getPublicCollection('anuncios'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); });
  onSnapshot(getPublicCollection('actividades'),qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); });
  onSnapshot(getPublicCollection('agenda'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); });
-	// Sustituciones
-	onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); });
+ // Sustituciones
+ onSnapshot(getPublicCollection('sustituciones'),qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); });
+ // Encuestas
+ if(typeof setupEncuestasRealtime==='function') setupEncuestasRealtime();
+}
+
+// ================= ENCUESTAS =================
+let encuestasUnsubscribe=null; let encuestasCache=[];
+// Gestión votos single/multiple
+function obtenerVoto(enc){ try{ const raw=localStorage.getItem('voto_encuesta_'+enc.id); if(raw==null) return enc.multiple?[]:null; if(enc.multiple){ try{ const arr=JSON.parse(raw); return Array.isArray(arr)?arr:[]; }catch{return []; } } return parseInt(raw,10);}catch{return enc.multiple?[]:null;}}
+function guardarVoto(enc,valor){ try{ const key='voto_encuesta_'+enc.id; if(enc.multiple) localStorage.setItem(key,JSON.stringify(valor)); else localStorage.setItem(key,String(valor)); }catch{} }
+function renderizarEncuestas(){
+ const cont=document.getElementById('lista-encuestas');
+ if(!cont) return;
+ cont.innerHTML='';
+ if(!encuestasCache.length){ cont.innerHTML='<p class="loading-message">Sin encuestas todavía</p>'; return; }
+ encuestasCache.sort((a,b)=>b.timestamp-a.timestamp);
+ encuestasCache.forEach(enc=>{
+   const wrap=document.createElement('div');
+   wrap.className='encuesta-item';
+   wrap.style.cssText='border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#fff;display:flex;flex-direction:column;gap:8px;';
+   const q=document.createElement('h4'); q.textContent=enc.pregunta||''; q.style.cssText='margin:0;font-size:0.85rem;';
+   wrap.appendChild(q);
+   const canManage = canWrite && (isAdmin || (enc.createdBy ? enc.createdBy===userId : false));
+   wrap.dataset.id=enc.id;
+  const prev=obtenerVoto(enc);
+  const voted=enc.multiple? (Array.isArray(prev)&&prev.length>0) : (prev!=null);
+  wrap.dataset.voted=voted? '1':'0';
+   // Actions row
+   if(canManage){
+     const actions=document.createElement('div');
+     actions.style.cssText='display:flex; gap:6px; flex-wrap:wrap;';
+     const btnEdit=document.createElement('button'); btnEdit.type='button'; btnEdit.textContent='Editar'; btnEdit.className='btn-accion encuesta-editar'; btnEdit.dataset.id=enc.id; btnEdit.style.fontSize='.6rem';
+     const btnSave=document.createElement('button'); btnSave.type='button'; btnSave.textContent='Guardar'; btnSave.className='btn-accion encuesta-guardar'; btnSave.dataset.id=enc.id; btnSave.style.fontSize='.6rem'; btnSave.style.display='none';
+     const btnCancel=document.createElement('button'); btnCancel.type='button'; btnCancel.textContent='Cancelar'; btnCancel.className='btn-accion encuesta-cancelar'; btnCancel.dataset.id=enc.id; btnCancel.style.fontSize='.6rem'; btnCancel.style.display='none';
+     const btnDelete=document.createElement('button'); btnDelete.type='button'; btnDelete.textContent='Borrar'; btnDelete.className='btn-accion eliminar encuesta-borrar'; btnDelete.dataset.id=enc.id; btnDelete.style.fontSize='.6rem';
+     actions.append(btnEdit,btnSave,btnCancel,btnDelete);
+     wrap.appendChild(actions);
+   }
+   // Resultados + botones de voto/cambio
+   const total=enc.opciones.reduce((s,o)=>s+(o.votos||0),0)||0;
+   const list=document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='6px';
+   enc.opciones.forEach((op,i)=>{
+     const pct=total?Math.round((op.votos||0)*100/total):0;
+     const row=document.createElement('div'); row.style.display='flex'; row.style.flexDirection='column'; row.style.gap='2px';
+     const label=document.createElement('div'); label.style.display='flex'; label.style.justifyContent='space-between'; label.style.fontSize='.65rem';
+     const active=enc.multiple? (Array.isArray(prev)&&prev.includes(i)) : (prev===i);
+     label.innerHTML=`<span>${op.texto||''}</span><strong>${op.votos||0} (${pct}%)</strong>`;
+     const barWrap=document.createElement('div'); barWrap.style.cssText='width:100%;background:#f3f4f6;border-radius:4px;height:8px;overflow:hidden;';
+     const bar=document.createElement('div'); bar.style.cssText=`height:100%;width:${pct}%;background:${active?'#059669':'#2563eb'};transition:width .4s;`;
+     barWrap.appendChild(bar); row.append(label,barWrap);
+     const btn=document.createElement('button'); btn.type='button'; btn.className='btn-accion opcion-voto'; btn.dataset.id=enc.id; btn.dataset.index=i.toString(); btn.textContent= enc.multiple? (active?'Quitar':'Añadir') : (active? 'Cambiar voto':'Votar'); btn.style.cssText='font-size:.55rem;align-self:flex-start;margin-top:4px;padding:4px 8px;';
+     row.appendChild(btn);
+     list.appendChild(row);
+   });
+   wrap.appendChild(list);
+   if(voted){ const badge=document.createElement('span'); badge.textContent= enc.multiple? 'Has seleccionado opciones (puedes ajustar)' : 'Has votado (puedes cambiar)'; badge.style.cssText='align-self:flex-start;font-size:.55rem;background:#059669;color:#fff;padding:2px 6px;border-radius:12px;'; wrap.appendChild(badge); }
+   if(enc.multiple){ const hint=document.createElement('small'); hint.textContent='Pregunta de selección múltiple'; hint.style.cssText='font-size:.5rem;color:#374151;margin-top:-4px;'; wrap.appendChild(hint); }
+   cont.appendChild(wrap);
+ });
+}
+// (Funciones antiguas haVotado/marcarVotado eliminadas)
+function setupEncuestas(){
+  const form=document.getElementById('form-encuestas');
+  const addBtn=document.getElementById('encuestas-add-opcion');
+  const contOps=document.getElementById('encuestas-opciones');
+  if(!form||!addBtn||!contOps) return;
+  function crearCampo(valor=''){
+    const wrap=document.createElement('div'); wrap.style.cssText='display:flex; gap:6px;';
+    const input=document.createElement('input'); input.type='text'; input.placeholder='Opción'; input.required=true; input.value=valor; input.style.cssText='flex:1;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.7rem;';
+    const del=document.createElement('button'); del.type='button'; del.textContent='×'; del.className='btn-accion eliminar'; del.style.cssText='padding:0 10px;background:#b91c1c;';
+    del.addEventListener('click',()=>{ wrap.remove(); });
+    wrap.append(input,del); return wrap;
+  }
+  // Semillas iniciales
+  if(!contOps.children.length){ contOps.appendChild(crearCampo()); contOps.appendChild(crearCampo()); }
+  addBtn.addEventListener('click',()=>{ contOps.appendChild(crearCampo()); });
+  form.addEventListener('submit',async e=>{
+    e.preventDefault(); if(!requireAuth()||!canWrite){ notifyWarn('No tienes permisos'); return; }
+  const pregunta=document.getElementById('encuesta-pregunta').value.trim();
+  const multiple=document.getElementById('encuesta-multiple')?.checked||false;
+  const opciones=[...contOps.querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean);
+  if(!pregunta||opciones.length<2){ notifyWarn('Pregunta y al menos dos opciones'); return; }
+  const docData={ pregunta, multiple: multiple?true:false, opciones:opciones.map(t=>({texto:t,votos:0})), timestamp:Date.now(), createdBy:userId||null };
+    try{ await addDoc(getPublicCollection('encuestas'),docData); notifySuccess('Encuesta creada'); form.reset(); contOps.innerHTML=''; contOps.appendChild(crearCampo()); contOps.appendChild(crearCampo()); }
+    catch{ notifyError('No se pudo crear la encuesta'); }
+  });
+  const lista=document.getElementById('lista-encuestas');
+  lista?.addEventListener('click',async e=>{
+    const btn=e.target.closest('.opcion-voto'); if(!btn) return;
+    if(!requireAuth()){ return; }
+    const encuestaId=btn.dataset.id; const index=parseInt(btn.dataset.index,10);
+    const enc=encuestasCache.find(x=>x.id===encuestaId); if(!enc) return;
+    const prev=obtenerVoto(enc);
+    try{
+      // Guardamos subcolección de votos: artifacts/appId/public/data/encuestas/{id}/votos/{userId}
+      const votosColl=collection(db, `artifacts/${appId}/public/data/encuestas/${encuestaId}/votos`);
+      const votoRef=doc(votosColl, userId);
+      const votoSnap=await getDoc(votoRef);
+      if(enc.multiple){
+        const arr=Array.isArray(prev)?prev.slice():[];
+        const was=arr.includes(index);
+        if(was){ enc.opciones[index].votos=Math.max(0,(enc.opciones[index].votos||0)-1); guardarVoto(enc,arr.filter(i=>i!==index)); }
+        else { enc.opciones[index].votos=(enc.opciones[index].votos||0)+1; arr.push(index); guardarVoto(enc,arr); }
+      } else {
+        if(prev!=null && prev!==index && enc.opciones[prev]) enc.opciones[prev].votos=Math.max(0,(enc.opciones[prev].votos||0)-1);
+        if(prev===index){ /* mismo */ } else enc.opciones[index].votos=(enc.opciones[index].votos||0)+1;
+        guardarVoto(enc,index);
+      }
+      renderizarEncuestas();
+      // Persistir: usamos transaction simple (lee doc actual, incrementa campo anidado)
+      const encRef=doc(getPublicCollection('encuestas'),encuestaId);
+      const encSnap=await getDoc(encRef);
+      if(encSnap.exists()){
+        const data=encSnap.data();
+        const arr=data.opciones||[];
+        if(enc.multiple){
+          const previousArray=Array.isArray(prev)?prev:[];
+          const was=previousArray.includes(index);
+            if(was){ if(arr[index]) arr[index].votos=Math.max(0,(arr[index].votos||0)-1); }
+            else { if(arr[index]) arr[index].votos=(arr[index].votos||0)+1; }
+        } else {
+          if(prev!=null && prev!==index && arr[prev]) arr[prev].votos=Math.max(0,(arr[prev].votos||0)-1);
+          if(prev!==index && arr[index]) arr[index].votos=(arr[index].votos||0)+1;
+        }
+        try {
+          await updateDoc(encRef,{
+            opciones:arr,
+            timestamp:Date.now(),
+            // aseguramos campos inmutables presentes para pasar reglas
+            pregunta:data.pregunta,
+            createdBy:data.createdBy||null,
+            multiple: data.multiple==true
+          });
+        } catch(errUpd){
+          console.error('Error update encuesta', errUpd, {encuestaId, data});
+          throw errUpd;
+        }
+      }
+      if(enc.multiple){ try{ await setDoc(votoRef,{ uid:userId, ts:Date.now(), indices: obtenerVoto(enc) }); }catch{} notifySuccess('Selección actualizada'); }
+      else { try { await setDoc(votoRef,{ uid:userId, ts:Date.now(), index }); }catch{} notifySuccess(prev!=null && prev!==index ? 'Voto cambiado' : 'Voto registrado'); }
+    }catch(err){ console.error('Voto error',err); notifyError('No se pudo votar'); }
+  });
+  // Acciones edición/borrado encuestas
+  lista?.addEventListener('click',async e=>{
+    const editBtn=e.target.closest('.encuesta-editar');
+    const saveBtn=e.target.closest('.encuesta-guardar');
+    const cancelBtn=e.target.closest('.encuesta-cancelar');
+    const delBtn=e.target.closest('.encuesta-borrar');
+    if(editBtn){
+      if(!requireAuth()||!canWrite){ notifyWarn('Sin permisos'); return; }
+      const id=editBtn.dataset.id; const wrap=editBtn.closest('.encuesta-item'); if(!wrap) return;
+      const enc=encuestasCache.find(x=>x.id===id); if(!enc) return;
+      // Convertir a modo edición
+      wrap.classList.add('editing');
+      const h4=wrap.querySelector('h4'); if(h4){ const input=document.createElement('input'); input.type='text'; input.value=enc.pregunta||''; input.style.cssText='width:100%;padding:6px 8px;font-size:.75rem;border:1px solid #d1d5db;border-radius:6px;'; input.className='encuesta-edit-pregunta'; h4.replaceWith(input); }
+  // Toggle multiple
+  const toggle=document.createElement('label'); toggle.style.cssText='display:flex;align-items:center;gap:6px;font-size:.55rem;font-weight:600;text-transform:uppercase;color:#374151;margin-top:4px;';
+  toggle.innerHTML=`<input type="checkbox" class="encuesta-edit-multiple" ${enc.multiple?'checked':''} style="transform:scale(1.1);" /> Selección múltiple`;
+  wrap.insertBefore(toggle, editBtn.parentElement);
+      // Quitar resultados o botones de voto
+      [...wrap.querySelectorAll('.opcion-voto, .encuesta-result-row, div > div > .activity-item')];
+      const existingBlocks=[...wrap.querySelectorAll('div')].filter(d=>d!==wrap.querySelector('div:has(button.encuesta-editar)'));
+      existingBlocks.forEach(b=>{ if(!b.querySelector('.encuesta-editar') && !b.contains(editBtn.parentElement)) b.remove(); });
+      // Crear lista editable
+      const editList=document.createElement('div'); editList.className='encuesta-edit-list'; editList.style.cssText='display:flex; flex-direction:column; gap:6px;';
+      enc.opciones.forEach((op,i)=>{
+        const row=document.createElement('div'); row.style.cssText='display:flex; gap:6px; align-items:center;';
+        const inp=document.createElement('input'); inp.type='text'; inp.value=op.texto||''; inp.dataset.index=i; inp.style.cssText='flex:1;padding:6px 8px;font-size:.65rem;border:1px solid #d1d5db;border-radius:6px;';
+        const votos=document.createElement('span'); votos.textContent=op.votos+' v'; votos.style.cssText='font-size:.55rem;color:#374151;';
+        const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='×'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='padding:0 8px;background:#b91c1c;font-size:.65rem;'; btnDel.addEventListener('click',()=>{ row.remove(); });
+        row.append(inp,votos,btnDel); editList.appendChild(row);
+      });
+      const addOp=document.createElement('button'); addOp.type='button'; addOp.textContent='Añadir opción'; addOp.className='btn-accion'; addOp.style.cssText='align-self:flex-start;font-size:.6rem;background:#374151;'; addOp.addEventListener('click',()=>{
+        const row=document.createElement('div'); row.style.cssText='display:flex; gap:6px; align-items:center;';
+        const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Nueva opción'; inp.style.cssText='flex:1;padding:6px 8px;font-size:.65rem;border:1px solid #d1d5db;border-radius:6px;';
+        const votos=document.createElement('span'); votos.textContent='0 v'; votos.style.cssText='font-size:.55rem;color:#374151;';
+        const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='×'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='padding:0 8px;background:#b91c1c;font-size:.65rem;'; btnDel.addEventListener('click',()=>{ row.remove(); });
+        row.append(inp,votos,btnDel); editList.appendChild(row);
+      });
+      wrap.insertBefore(editList, editBtn.parentElement); // before actions
+      wrap.insertBefore(addOp, editBtn.parentElement);
+      // Toggle buttons
+      editBtn.style.display='none';
+      wrap.querySelector('.encuesta-guardar').style.display='inline-block';
+      wrap.querySelector('.encuesta-cancelar').style.display='inline-block';
+    }
+    if(cancelBtn){
+      const id=cancelBtn.dataset.id; const wrap=cancelBtn.closest('.encuesta-item'); if(!wrap) return; // simplemente re-render
+      renderizarEncuestas();
+      return;
+    }
+    if(saveBtn){
+      if(!requireAuth()||!canWrite){ notifyWarn('Sin permisos'); return; }
+      const id=saveBtn.dataset.id; const wrap=saveBtn.closest('.encuesta-item'); if(!wrap) return;
+      const enc=encuestasCache.find(x=>x.id===id); if(!enc) return;
+      const preguntaInput=wrap.querySelector('.encuesta-edit-pregunta');
+      const newPregunta=(preguntaInput?.value||'').trim(); if(!newPregunta){ notifyWarn('Pregunta requerida'); return; }
+      const optionInputs=[...wrap.querySelectorAll('.encuesta-edit-list input')];
+      const opciones=optionInputs.map(i=>({ texto:i.value.trim(), votos: enc.opciones[i.dataset.index]? enc.opciones[i.dataset.index].votos : 0 })).filter(o=>o.texto);
+      if(opciones.length<2){ notifyWarn('Mínimo 2 opciones'); return; }
+      const multiple=wrap.querySelector('.encuesta-edit-multiple')?.checked||false;
+      try{
+        const encuestaRef=doc(getPublicCollection('encuestas'),id);
+        if(enc.multiple !== multiple){
+          // Migración de votos
+          const votosColl=collection(db, `artifacts/${appId}/public/data/encuestas/${id}/votos`);
+          const snapVotes=await getDocs(votosColl);
+          const counts=new Array(opciones.length).fill(0);
+          let dropped=0;
+          for(const v of snapVotes.docs){
+            const dataV=v.data()||{};
+            if(multiple){ // single -> multiple
+              let indices=[];
+              if(Array.isArray(dataV.indices)) indices=dataV.indices; else if(Number.isInteger(dataV.index)) indices=[dataV.index];
+              indices=indices.filter(n=>Number.isInteger(n)&&n>=0&&n<opciones.length);
+              // acumular conteos
+              const uniq=[...new Set(indices)];
+              if(!uniq.length){ dropped++; continue; }
+              uniq.forEach(i=>{ counts[i]++; });
+              try{ await setDoc(v.ref,{ uid:dataV.uid||v.id, ts:Date.now(), indices:uniq }); }catch{}
+            } else { // multiple -> single
+              let idx=null;
+              if(Number.isInteger(dataV.index)) idx=dataV.index; else if(Array.isArray(dataV.indices)&&dataV.indices.length) idx=dataV.indices[0];
+              if(Number.isInteger(idx) && idx>=0 && idx<opciones.length){ counts[idx]++; try{ await setDoc(v.ref,{ uid:dataV.uid||v.id, ts:Date.now(), index:idx }); }catch{} }
+              else { dropped++; }
+            }
+          }
+          const opcionesFinal=opciones.map((o,i)=>({ texto:o.texto, votos:counts[i] }));
+          await updateDoc(encuestaRef,{ pregunta:newPregunta, opciones:opcionesFinal, multiple: multiple?true:false, timestamp:Date.now(), createdBy:enc.createdBy||userId||null });
+          notifySuccess('Encuesta actualizada (migrados votos'+(dropped?`, descartados ${dropped}`:'')+')');
+        } else {
+          await updateDoc(encuestaRef, { pregunta:newPregunta, opciones, multiple: multiple?true:false, timestamp:Date.now(), createdBy:enc.createdBy||userId||null });
+          notifySuccess('Encuesta actualizada');
+        }
+      }catch{ notifyError('No se pudo actualizar'); }
+    }
+    if(delBtn){
+      if(!requireAuth()||!canWrite){ notifyWarn('Sin permisos'); return; }
+      const id=delBtn.dataset.id; const enc=encuestasCache.find(x=>x.id===id); if(!enc) return;
+      showConfirmation('¿Eliminar encuesta?', async()=>{
+        const ref=doc(getPublicCollection('encuestas'),id);
+        let dataClone=null; try{ const snap=await getDoc(ref); if(snap.exists()) dataClone=snap.data(); }catch{}
+        try{ await deleteDoc(ref); notifyWithAction('Encuesta eliminada','Deshacer', async()=>{ if(dataClone) try{ await setDoc(ref,dataClone); notifySuccess('Encuesta restaurada'); }catch{ notifyError('No se pudo restaurar'); } }, {type:'warn'}); }
+        catch{ notifyError('Error eliminando'); }
+      });
+    }
+  });
+}
+function setupEncuestasRealtime(){
+  if(encuestasUnsubscribe) return; // evitar duplicar
+  encuestasUnsubscribe=onSnapshot(getPublicCollection('encuestas'),async qs=>{
+    const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()}));
+    encuestasCache=arr;
+    // Para cada encuesta comprobar subcolección votos para el usuario para decidir UI (optimización: se usa localStorage, pero se podría verificar)
+    renderizarEncuestas();
+    marcarNuevos('encuestas',arr);
+  });
+  setupEncuestas();
 }
 
 // Navegación

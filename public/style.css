@@ -7,8 +7,9 @@ body {
 	background-color: #f8fafc; /* slate-50 */
 	color: #111827; /* gray-900 */
 	display: flex;
-	justify-content: center;
-	align-items: flex-start;
+	flex-direction: column; /* Apila contenido verticalmente */
+	align-items: center; /* Centra horizontalmente el contenedor principal */
+	justify-content: flex-start; /* Evita que se centre verticalmente */
 	min-height: 100vh;
 	padding-top: 50px;
 }

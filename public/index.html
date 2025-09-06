@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Cabeceras COOP/COEP se aplican ahora vía Hosting sólo en rutas necesarias -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="./logo.svg">
+  <link rel="icon" type="image/png" href="./logo.png" sizes="96x96">
   <title>CEIP LA Arboleda – Gestión del Claustro</title>
   <link rel="stylesheet" href="./style.css">
 </head>
@@ -40,6 +41,7 @@
   <button id="btn-anuncios">Anuncios<span class="badge-dot"></span></button>
   <button id="btn-agenda">Agenda<span class="badge-dot"></span></button>
     <button id="btn-sustituciones">Sustituciones<span class="badge-dot"></span></button>
+  <button id="btn-encuestas">Encuestas<span class="badge-dot"></span></button>
     </div>
 
     <main>
@@ -241,6 +243,26 @@
           </div>
         </div>
       </section>
+
+      <!-- Sección de Encuestas -->
+      <section id="seccion-encuestas" class="seccion">
+        <h2>Encuestas Rápidas</h2>
+        <form id="form-encuestas" style="margin-bottom:16px; display:flex; flex-direction:column; gap:10px; max-width:520px;">
+          <input type="text" id="encuesta-pregunta" placeholder="Escribe tu pregunta aquí..." required style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;" />
+          <div id="encuestas-opciones" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">
+            <input type="checkbox" id="encuesta-multiple" style="transform:scale(1.1);" /> Permitir seleccionar varias opciones
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" id="encuestas-add-opcion" class="btn-accion" style="background:#374151;">Añadir opción</button>
+            <button type="submit" class="btn-accion">Crear Encuesta</button>
+          </div>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2;">Añade al menos dos opciones. Tras crear la encuesta podrás ver los resultados al votar.</small>
+        </form>
+        <div id="lista-encuestas">
+          <p class="loading-message">Sin encuestas todavía</p>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -351,6 +373,13 @@
   </div>
 
   <!-- Carga opcional de configuración local: crea config.js a partir de config.example.js -->
+  <footer style="margin-top:60px;padding:24px 16px;background:#f3f4f6;border-top:1px solid #e5e7eb;">
+    <div style="max-width:960px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,.04);font-size:.58rem;line-height:1.35;color:#374151;">
+      <div><strong>Aplicación creada por:</strong> Diego Alberto Moya Puerta – Maestro de Educación Primaria (Comunidad Autónoma de la Región de Murcia)</div>
+      <div><strong>Contacto:</strong> <a href="mailto:diegoalberto.moya@murciaeduca.es" style="color:#1d4ed8;">diegoalberto.moya@murciaeduca.es</a></div>
+      <div><strong>Licencia:</strong> <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" target="_blank" rel="noopener" style="color:#1d4ed8;">Creative Commons Reconocimiento-CompartirIgual 4.0 (CC BY-SA 4.0)</a></div>
+    </div>
+  </footer>
   <script src="./config.js" defer></script>
   <script type="module" src="./app.js"></script>
 </body>
