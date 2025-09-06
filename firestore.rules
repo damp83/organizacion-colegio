@@ -140,11 +140,12 @@ service cloud.firestore {
       }
 
       function validSustituciones(d) {
-        return isShortString(d.sustituto, 200) &&
-               isShortString(d.curso, 200) &&
-               isShortString(d.asignatura, 200) &&
-               isHourString(d.hora) &&
-               (d.instrucciones == null || isShortString(d.instrucciones, 4000));
+  return isShortString(d.sustituto, 200) &&
+         isShortString(d.curso, 200) &&
+         isShortString(d.asignatura, 200) &&
+         // Permite formato HH:MM o una etiqueta corta (p.e. "3ª", "Recreo", "1-2") hasta 20 chars
+         ( (d.hora is string) && ( isHourString(d.hora) || isShortString(d.hora, 20) ) ) &&
+         (d.instrucciones == null || isShortString(d.instrucciones, 4000));
       }
     }
   }

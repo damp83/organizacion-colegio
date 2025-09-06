@@ -217,7 +217,10 @@ formSustituciones?.addEventListener('submit',async e=>{
 	try{
 		await addDoc(getPublicCollection('sustituciones'),{ sustituto, curso, asignatura, hora, instrucciones, timestamp:Date.now(), createdBy:userId||null });
 		formSustituciones.reset();
-	}catch{ alert('Error guardando sustitución'); }
+	}catch(err){
+		console.error('Error add sustitucion',err);
+		alert('Error guardando sustitución: '+(err?.code||''));
+	}
 });
 listaSustituciones?.addEventListener('click',e=>{
 	if(e.target.classList.contains('eliminar')){
