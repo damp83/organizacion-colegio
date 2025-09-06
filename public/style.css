@@ -346,6 +346,20 @@ h2 {
 	justify-content: space-between;
 	align-items: center;
 }
+
+/* Drag & Drop estados */
+.activity-item[draggable="true"] {
+	cursor: grab;
+}
+.activity-item[draggable="true"]:active {
+	cursor: grabbing;
+}
+.day-cell.drag-over {
+	outline: 3px dashed #2563eb;
+	outline-offset: -3px;
+	background-color: #e0f2fe; /* sky-100 */
+}
+.day-cell.drag-over .day-number { color: #1d4ed8; }
         
 .activity-item .delete-btn {
 	background-color: transparent;

@@ -121,6 +121,9 @@ function computeCanWrite(u, adminFlag) {
 let didManualLogout = false;
 // Cache de actividades para mantenerlas al cambiar de mes
 let actividadesMapCache = new Map();
+// Estado temporal para Drag & Drop
+let dragActivity = null; // { id, title, date, createdBy, ... }
+let dragSourceDate = null;
 
 // --- Funciones de la base de datos ---
 const getPublicCollection = (collectionName) => {
@@ -364,11 +367,82 @@ function renderizarActividades() {
 				del.dataset.id = act.id;
 				del.textContent = '×';
 				activityItem.appendChild(del);
+				// Habilitar drag
+				activityItem.setAttribute('draggable', 'true');
+				activityItem.addEventListener('dragstart', (ev) => {
+					try { ev.dataTransfer.effectAllowed = 'move'; } catch(_){ }
+					dragActivity = act;
+					dragSourceDate = cell.dataset.date;
+					activityItem.classList.add('dragging');
+				});
+				activityItem.addEventListener('dragend', () => {
+					dragActivity = null;
+					dragSourceDate = null;
+					activityItem.classList.remove('dragging');
+					removeDragHighlights();
+				});
 			}
 			cell.appendChild(activityItem);
 		});
 	});
 }
+
+// Helpers drag & drop
+function removeDragHighlights() {
+	document.querySelectorAll('.day-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+}
+
+// Delegar eventos de dragenter/dragover/dragleave/drop en calendarGrid
+calendarGrid.addEventListener('dragenter', (e) => {
+	const target = e.target.closest('.day-cell');
+	if (!target || target.classList.contains('other-month')) return;
+	if (!dragActivity) return;
+	if (!canWrite) return;
+	target.classList.add('drag-over');
+});
+
+calendarGrid.addEventListener('dragover', (e) => {
+	if (dragActivity) {
+		// Permitir drop
+		try { e.preventDefault(); } catch(_) {}
+	}
+});
+
+calendarGrid.addEventListener('dragleave', (e) => {
+	const target = e.target.closest('.day-cell');
+	if (!target) return;
+	if (!dragActivity) return;
+	// Sólo retirar si realmente se abandona la celda
+	if (!target.contains(e.relatedTarget)) {
+		target.classList.remove('drag-over');
+	}
+});
+
+calendarGrid.addEventListener('drop', async (e) => {
+	if (!dragActivity) return;
+	const target = e.target.closest('.day-cell');
+	if (!target || target.classList.contains('other-month')) return;
+	try { e.preventDefault(); } catch(_) {}
+	const newDate = target.dataset.date;
+	if (!newDate || newDate === dragActivity.date) {
+		removeDragHighlights();
+		return;
+	}
+	// Seguridad: sólo mover si usuario puede gestionar la actividad
+	if (!canWrite || !(isAdmin || dragActivity.createdBy === userId)) {
+		alert('No tienes permisos para mover esta actividad.');
+		removeDragHighlights();
+		return;
+	}
+	try {
+		// Actualizar documento Firestore
+		await updateDoc(doc(getPublicCollection('actividades'), dragActivity.id), { date: newDate, timestamp: Date.now() });
+	} catch(err) {
+		console.warn('Error moviendo actividad', err);
+		alert('No se pudo mover la actividad.');
+	}
+	removeDragHighlights();
+});
 
 function renderizarAgenda(agenda) {
 	agenda.sort((a, b) => new Date(a.date) - new Date(b.date));
