@@ -134,6 +134,7 @@ let lastRedirectError = null;
 let lastRedirectResultChecked = false;
 let lastLoginAttempt = null; // { provider: 'google'|'microsoft', ts: number }
 let triedPopupFallback = false;
+let attemptedPopupAfterFailedRedirect = false;
 const LS_REDIRECT_MARK = 'pendingRedirectProvider';
 const ALLOWLIST_EMAILS = new Set([
 	"alejandra.fernandez@murciaeduca.es",
@@ -1038,12 +1039,13 @@ if (btnLoginGoogle) {
 		try {
 			console.log('[auth][google] redirect');
 			didManualLogout = false;
+			btnLoginGoogle.disabled = true; btnLoginGoogle.textContent='Redirigiendo...';
 			const provider = new GoogleAuthProvider();
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'google', ts: Date.now() };
 			localStorage.setItem(LS_REDIRECT_MARK, 'google');
 			await signInWithRedirect(auth, provider);
-		} catch(e){ console.error('[auth][google] fallo redirect', e); }
+		} catch(e){ console.error('[auth][google] fallo redirect', e); btnLoginGoogle.disabled=false; btnLoginGoogle.textContent='Entrar con Google'; }
 	});
 }
 
@@ -1052,12 +1054,13 @@ if (btnLoginMs) {
 		try {
 			console.log('[auth][microsoft] redirect');
 			didManualLogout = false;
+			btnLoginMs.disabled = true; btnLoginMs.textContent='Redirigiendo...';
 			const provider = new OAuthProvider('microsoft.com');
 			provider.setCustomParameters({ prompt: 'select_account' });
 			lastLoginAttempt = { provider: 'microsoft', ts: Date.now() };
 			localStorage.setItem(LS_REDIRECT_MARK, 'microsoft');
 			await signInWithRedirect(auth, provider);
-		} catch(e){ console.error('[auth][microsoft] fallo redirect', e); }
+		} catch(e){ console.error('[auth][microsoft] fallo redirect', e); btnLoginMs.disabled=false; btnLoginMs.textContent='Entrar con Microsoft'; }
 	});
 }
 
