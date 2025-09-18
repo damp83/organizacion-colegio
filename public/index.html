@@ -1,89 +1,612 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="shortcut icon" href="/favicon.png">
+  <!-- (Opcional) Si deseas seguir mostrando el logo como SVG pequeño podrías mantenerlo como mask-icon para Safari pinned tabs -->
+  <link rel="mask-icon" href="/logo.svg" color="#2563eb">
+  <title>CEIP LA Arboleda – Gestión del Claustro</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.2.1/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.2.1/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.2.1/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
-
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <picture>
+          <source srcset="./logo.png" type="image/png">
+          <img class="logo" src="./logo.svg" alt="CEIP LA Arboleda - Logo" width="56" height="56" />
+        </picture>
+        <div class="brand-text">
+          <h1>CEIP LA Arboleda</h1>
+          <p class="subtitle">Gestión del Claustro</p>
+        </div>
+      </div>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-secciones">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="user-info">Cargando usuario...</div>
+      <div class="auth-actions">
+        <button id="btn-login-google" class="btn-accion">Entrar con Google</button>
+        <button id="btn-logout" class="btn-accion" style="display:none;">Cerrar sesión</button>
+        <!-- Campana de notificaciones -->
+        <button id="btn-notificaciones" class="btn-accion" aria-label="Notificaciones" title="Notificaciones" style="position:relative;min-width:44px;padding:6px 10px;display:none;background:#374151;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </span>
+          <span id="badge-notificaciones" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-size:.55rem;font-weight:700;line-height:1;padding:4px 5px;border-radius:999px;min-width:18px;text-align:center;">0</span>
+        </button>
+      </div>
+    </header>
+  <!-- Overlay para móvil (cierra al tocar fuera) -->
+  <div id="overlay-notificaciones" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.25);backdrop-filter:blur(2px);z-index:11990;"></div>
+  <!-- Panel flotante de notificaciones -->
+  <div id="panel-notificaciones" style="display:none;position:fixed;top:70px;right:14px;width:320px;max-height:480px;background:#ffffff;border:1px solid #d1d5db;border-radius:12px;box-shadow:0 10px 24px -4px rgba(0,0,0,.25);z-index:12000;overflow:hidden;display:flex;flex-direction:column;touch-action:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;">
+        <strong style="font-size:.75rem;letter-spacing:.5px;text-transform:uppercase;color:#374151;">Notificaciones</strong>
+        <button id="cerrar-panel-notif" aria-label="Cerrar" title="Cerrar" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;font-size:.65rem;padding:4px 8px;cursor:pointer;">Cerrar</button>
+      </div>
+      <div id="lista-notificaciones" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:0;">
+        <p style="margin:12px;font-size:.7rem;color:#64748b;">Sin notificaciones recientes</p>
+      </div>
+      <div style="padding:8px 12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+        <button id="marcar-notif-leidas" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:.6rem;font-weight:600;cursor:pointer;">Marcar todas leídas</button>
+        <small style="font-size:.55rem;color:#6b7280;">Se muestran las 30 últimas</small>
+      </div>
     </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
+    <style>
+      @media (max-width:640px){
+        #panel-notificaciones{ top:auto !important; right:0 !important; bottom:0; left:0; width:100% !important; max-height:65vh !important; border-radius:18px 18px 0 0 !important; border:1px solid #d1d5db; }
+        #panel-notificaciones [data-drag-handle]{display:block;}
+      }
+      #panel-notificaciones[data-mobile-open='1']{animation:slideUpNoti .28s ease;}
+      @keyframes slideUpNoti { from { transform:translateY(18px); opacity:0;} to { transform:translateY(0); opacity:1;} }
+      #panel-notificaciones .drag-bar{display:none; height:18px; width:100%; cursor:grab; position:relative;}
+      #panel-notificaciones .drag-bar:before{content:''; position:absolute; left:50%; top:6px; width:42px; height:5px; background:#d1d5db; border-radius:8px; transform:translateX(-50%);}
+    </style>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+    <div class="nav-bar" id="nav-secciones">
+      <button id="btn-documentos" class="active" aria-label="Documentos">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </span>
+        <span class="nav-text">Documentos</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-calendario" aria-label="Calendario">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <span class="nav-text">Calendario</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-anuncios" aria-label="Anuncios">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 13v8H1V9h2z"/></svg>
+        </span>
+        <span class="nav-text">Anuncios</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-agenda" aria-label="Agenda">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 4v16"/></svg>
+        </span>
+        <span class="nav-text">Agenda</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-sustituciones" aria-label="Sustituciones">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M15 11l4.55-4.55"/><path d="M2 22l6-6"/></svg>
+        </span>
+        <span class="nav-text">Sustituciones</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-encuestas" aria-label="Encuestas">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"/><path d="M5 7v14"/><path d="M19 7v6"/><path d="M12 7v10"/></svg>
+        </span>
+        <span class="nav-text">Encuestas</span>
+        <span class="badge-dot"></span>
+      </button>
+      <button id="btn-tareas" aria-label="Tareas">
+        <span class="nav-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M2 20h6l2 2h6l2-2h2V8H2z"/></svg>
+        </span>
+        <span class="nav-text">Tareas</span>
+        <span class="badge-dot"></span>
+      </button>
+    </div>
 
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-  </body>
+    <main>
+      <!-- Sección de Documentos -->
+      <section id="seccion-documentos" class="seccion active">
+  <h2>Documentos Institucionales</h2>
+  <div class="documentos-grid">
+          <p class="loading-message">Cargando documentos...</p>
+        </div>
+        <button class="btn-accion" id="btn-subir-documento">Subir Documento</button>
+      </section>
+
+      <!-- Sección de Calendario -->
+      <section id="seccion-calendario" class="seccion">
+  <h2>Calendario de Actividades</h2>
+        <div class="restricted-msg" data-section="calendario" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Identifícate con tu cuenta institucional para consultar el calendario interno.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:240px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo visible tras acceder</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Excursión 5º Primaria (08/10)</li>
+                <li>Evaluación Inicial 3ºB (10/10)</li>
+                <li>Taller lectura 2ºA (12/10)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="calendar-nav">
+          <button id="prev-month">&lt;</button>
+          <span id="month-year"></span>
+          <button id="next-month">&gt;</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+          <button type="button" id="calendar-toggle-scroll" class="btn-accion" style="margin-top:0; padding:6px 12px; font-size:0.7rem; background:#374151;">Modo scroll interno</button>
+          <button type="button" id="calendar-print" class="btn-accion" style="margin-top:0; padding:6px 12px; font-size:0.7rem; background:#2563eb;">Imprimir</button>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2; max-width:260px;">Activa para ver más actividades por día desplazando dentro de cada casilla.</small>
+        </div>
+        <div class="calendar-filtros" id="calendar-filtros" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; margin-bottom:14px;">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:240px;">
+            <label for="filtro-cursos" style="font-size:0.75rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar por cursos</label>
+            <select id="filtro-cursos" multiple size="4" style="min-width:240px; padding:6px 8px; font-size:0.75rem; border-radius:8px; border:1px solid #d1d5db; background:#fff;">
+              <!-- opciones dinámicas -->
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <button id="filtro-cursos-clear" class="btn-accion" style="margin-top:18px; padding:8px 14px; font-size:0.75rem;">Limpiar filtro</button>
+          </div>
+          <small style="font-size:0.65rem; color:#6b7280; max-width:280px; line-height:1.3;">Selecciona uno o varios cursos para mostrar sólo sus actividades. Si no seleccionas nada se muestran todas.</small>
+        </div>
+        <div class="calendar-grid" id="calendar-grid">
+          <div class="day-header">Lun</div>
+          <div class="day-header">Mar</div>
+          <div class="day-header">Mié</div>
+          <div class="day-header">Jue</div>
+          <div class="day-header">Vie</div>
+          <div class="day-header">Sáb</div>
+          <div class="day-header">Dom</div>
+        </div>
+      </section>
+
+      <!-- Sección de Anuncios -->
+      <section id="seccion-anuncios" class="seccion">
+  <h2>Tablón de Anuncios</h2>
+        <form id="form-anuncio" class="anuncios-form">
+          <textarea id="anuncio-texto" placeholder="Escribe tu anuncio aquí..." required></textarea>
+          <button type="submit" class="btn-accion">Publicar Anuncio</button>
+        </form>
+        <div id="lista-anuncios">
+          <p class="loading-message">Cargando anuncios...</p>
+        </div>
+      </section>
+
+      <!-- Sección de Agenda -->
+      <section id="seccion-agenda" class="seccion">
+  <h2>Agenda de Reuniones</h2>
+        <div class="restricted-msg" data-section="agenda" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Inicia sesión para ver reuniones programadas, actas y documentación interna.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:240px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Claustro ordinario 15/10 12:30</li>
+                <li>Equipo ciclo 1º 18/10 10:00</li>
+                <li>COCOPE 24/10 13:15</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <form id="form-agenda" class="agenda-form">
+          <input type="hidden" id="agenda-id">
+          <input type="text" id="agenda-titulo" placeholder="Título de la reunión" required>
+          <input type="date" id="agenda-fecha" required>
+          <select id="agenda-estado">
+            <option value="Programada">Programada</option>
+            <option value="En curso">En curso</option>
+            <option value="Finalizada">Finalizada</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+          <input type="url" id="agenda-documento" placeholder="Enlace a documento (opcional)">
+          <textarea id="agenda-descripcion" placeholder="Descripción de la reunión..." rows="4"></textarea>
+          <button type="submit" class="btn-accion">Añadir Reunión</button>
+        </form>
+        <div id="lista-agenda" class="agenda-list">
+          <p class="loading-message">Cargando reuniones...</p>
+        </div>
+      </section>
+
+      <!-- Sección de Sustituciones -->
+      <section id="seccion-sustituciones" class="seccion">
+  <h2>Gestión de Sustituciones</h2>
+        <div class="restricted-msg" data-section="sustituciones" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Accede con tu cuenta para ver y registrar sustituciones programadas.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo de registro</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Sesión 2 · 3ºA · Matemáticas</li>
+                <li>Sesión 4 · Infantil 5B · Música</li>
+                <li>Sesión 5 · 6ºB · Inglés</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-curso" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar curso</label>
+            <input type="text" id="filtro-sust-curso" placeholder="Ej: 3º Primaria A" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="filtro-sust-asig" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar asignatura</label>
+            <input type="text" id="filtro-sust-asig" placeholder="Ej: Matemáticas" style="padding:6px 8px; font-size:0.75rem; border:1px solid #d1d5db; border-radius:8px;" />
+          </div>
+          <button id="filtro-sust-clear" class="btn-accion" style="height:34px; font-size:0.7rem;">Limpiar</button>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2; max-width:220px;">Los filtros se aplican en vivo sobre la lista.</small>
+        </div>
+        <form id="form-sustituciones" class="agenda-form" style="margin-bottom:18px;">
+          <input type="hidden" id="sustitucion-id" />
+          <div style="display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+            <input type="text" id="sustitucion-sustituto" placeholder="Maestro que sustituye" required>
+            <select id="sustitucion-dia" required title="Día">
+              <option value="" disabled selected>Día</option>
+              <option value="Lunes">Lunes</option>
+              <option value="Martes">Martes</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Jueves">Jueves</option>
+              <option value="Viernes">Viernes</option>
+            </select>
+            <select id="sustitucion-sesion" required title="Sesión">
+              <option value="" disabled selected>Sesión</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+            <!-- Curso -->
+            <select id="sustitucion-curso" required title="Curso">
+              <option value="" disabled selected>Curso</option>
+              <optgroup label="Infantil">
+                <option value="Infantil 3 A">Infantil 3 A</option>
+                <option value="Infantil 3 B">Infantil 3 B</option>
+                <option value="Infantil 4 A">Infantil 4 A</option>
+                <option value="Infantil 4 B">Infantil 4 B</option>
+                <option value="Infantil 5 A">Infantil 5 A</option>
+                <option value="Infantil 5 B">Infantil 5 B</option>
+              </optgroup>
+              <optgroup label="Primaria">
+                <option value="1º Primaria A">1º Primaria A</option>
+                <option value="1º Primaria B">1º Primaria B</option>
+                <option value="2º Primaria A">2º Primaria A</option>
+                <option value="2º Primaria B">2º Primaria B</option>
+                <option value="3º Primaria A">3º Primaria A</option>
+                <option value="3º Primaria B">3º Primaria B</option>
+                <option value="4º Primaria A">4º Primaria A</option>
+                <option value="4º Primaria B">4º Primaria B</option>
+                <option value="5º Primaria A">5º Primaria A</option>
+                <option value="5º Primaria B">5º Primaria B</option>
+                <option value="6º Primaria A">6º Primaria A</option>
+                <option value="6º Primaria B">6º Primaria B</option>
+              </optgroup>
+            </select>
+            <!-- Asignatura -->
+            <select id="sustitucion-asignatura" required title="Asignatura">
+              <option value="" disabled selected>Asignatura</option>
+              <option value="Lengua">Lengua</option>
+              <option value="Matemáticas">Matemáticas</option>
+              <option value="Inglés">Inglés</option>
+              <option value="Profundización Educativa">Profundización Educativa</option>
+              <option value="Religión">Religión</option>
+              <option value="Atención Educativa">Atención Educativa</option>
+              <option value="Valores">Valores</option>
+              <option value="Educación Física">Educación Física</option>
+              <option value="Plástica">Plástica</option>
+              <option value="Ciencias Sociales">Ciencias Sociales</option>
+              <option value="Ciencias Naturales">Ciencias Naturales</option>
+              <option value="Francés">Francés</option>
+              <option value="Otros Infantil">Otros Infantil</option>
+              <option value="Música">Música</option>
+            </select>
+            <!-- Hora (intervalo) -->
+            <div style="display:flex; gap:4px; align-items:center;">
+              <select id="sustitucion-hora-inicio" required title="Hora inicio" style="flex:1;">
+                <option value="" disabled selected>Inicio</option>
+              </select>
+              <span style="font-size:0.7rem; color:#555;">-</span>
+              <select id="sustitucion-hora-fin" required title="Hora fin" style="flex:1;">
+                <option value="" disabled selected>Fin</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="sustitucion-instrucciones" placeholder="Instrucciones para la sustitución" rows="4" style="margin-top:10px;"></textarea>
+          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-accion">Registrar Sustitución</button>
+          </div>
+        </form>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0 6px; flex-wrap:wrap; gap:8px;">
+          <h3 style="margin:0; font-size:0.95rem;">Horario semanal de sustituciones</h3>
+          <div style="display:flex; gap:6px;">
+            <button type="button" id="btn-limpiar-semana-sust" class="btn-accion eliminar" style="background:#b91c1c;">Limpiar semana</button>
+          </div>
+        </div>
+        <div id="lista-sustituciones" class="agenda-list" style="padding:0; background:transparent;">
+          <div style="overflow-x:auto;">
+            <table id="tabla-sustituciones" style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+              <thead>
+                <tr>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Sesión</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Horario</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Lunes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Martes</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Miércoles</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Jueves</th>
+                  <th style="border:1px solid #e5e7eb; background:#f3f4f6; padding:6px;">Viernes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+          <div id="sustituciones-sin-slot" style="margin-top:12px;">
+            <!-- Listado para sustituciones sin día/sesión (legacy) -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Sección de Encuestas -->
+      <section id="seccion-encuestas" class="seccion">
+  <h2>Encuestas Rápidas</h2>
+        <div class="restricted-msg" data-section="encuestas" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Debes iniciar sesión para participar y ver resultados internos.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>¿Fecha para sesión TIC?</li>
+                <li>¿Preferencia formación ABN?</li>
+                <li>Votación actividad semana cultural</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <form id="form-encuestas" style="margin-bottom:16px; display:flex; flex-direction:column; gap:10px; max-width:520px;">
+          <input type="text" id="encuesta-pregunta" placeholder="Escribe tu pregunta aquí..." required style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;" />
+          <div id="encuestas-opciones" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">
+            <input type="checkbox" id="encuesta-multiple" style="transform:scale(1.1);" /> Permitir seleccionar varias opciones
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" id="encuestas-add-opcion" class="btn-accion" style="background:#374151;">Añadir opción</button>
+            <button type="submit" class="btn-accion">Crear Encuesta</button>
+          </div>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2;">Añade al menos dos opciones. Tras crear la encuesta podrás ver los resultados al votar.</small>
+        </form>
+        <div id="lista-encuestas">
+          <p class="loading-message">Sin encuestas todavía</p>
+        </div>
+      </section>
+
+      <!-- Sección de Tareas -->
+      <section id="seccion-tareas" class="seccion">
+        <h2>Mis Tareas</h2>
+        <div class="restricted-msg" data-section="tareas" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Identifícate para gestionar tus tareas personales y compartidas.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Programación docente (15/10)</li>
+                <li>Acta evaluación 2º trim</li>
+                <li>Reunión familias ciclo inicial</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <form id="form-tarea" style="margin-bottom:18px; display:flex; flex-direction:column; gap:10px; max-width:620px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Tipo de título</label>
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+              <select id="tarea-titulo-select" style="flex:1; min-width:240px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;">
+                <option value="">-- Selecciona --</option>
+                <option>Acta de evaluación inicial</option>
+                <option>Reunión padres (1º trimestre)</option>
+                <option>Reunión padres (2º trimestre)</option>
+                <option>Reunión padres (3º trimestre)</option>
+                <option>Acta evaluación (1º trimestre)</option>
+                <option>Acta evaluación (2º trimestre)</option>
+                <option>Acta evaluación (3º trimestre)</option>
+                <option>Programación docente</option>
+                <option>Informes</option>
+                <option>PAP</option>
+                <option>Actas equipo docente</option>
+                <option>Práctica docente</option>
+                <option value="__custom">Otro (especificar)</option>
+              </select>
+              <input type="text" id="tarea-titulo" placeholder="Título de la tarea" required style="flex:1; min-width:240px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem;" />
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Fecha límite</label>
+              <input type="date" id="tarea-fecha-limite" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;" />
+            </div>
+            <div style="flex:2; min-width:240px; display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Tipo de tarea</label>
+              <select id="tarea-tipo" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;">
+                <option value="Personal">Personal</option>
+                <option value="Compartida">Compartida</option>
+              </select>
+            </div>
+            <div id="tarea-compartir-wrapper" style="flex:3; min-width:260px; display:none; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Compartir con (docentes)</label>
+              <select id="tarea-compartir-emails" multiple size="4" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.7rem; min-height:100px;">
+                <!-- opciones dinámicas -->
+              </select>
+              <small style="font-size:.55rem;color:#64748b;">Mantén Ctrl/Cmd para seleccionar varios. Si se deja vacío se considera visible para todo el claustro.</small>
+            </div>
+          </div>
+          <textarea id="tarea-descripcion" placeholder="Descripción (opcional)" rows="3" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;"></textarea>
+          <input type="url" id="tarea-drive-link" placeholder="Enlace Drive / Docs (opcional)" pattern="https?://.*" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;" />
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="submit" class="btn-accion" style="margin-top:0;">Añadir Tarea</button>
+          </div>
+          <small style="font-size:0.6rem; color:#6b7280; line-height:1.2;">Las tareas personales sólo las ves tú. Las compartidas son visibles para todo el claustro autorizado. Si seleccionas un título predefinido se rellenará automáticamente; usa "Otro" para escribir el tuyo.</small>
+        </form>
+        <div style="display:grid; gap:24px; align-items:start; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+          <div>
+            <h3 style="margin:0 0 8px; font-size:0.95rem;">Personales</h3>
+            <div id="lista-tareas-personales" class="tareas-list" style="display:flex; flex-direction:column; gap:10px;">
+              <p class="loading-message">Sin tareas personales</p>
+            </div>
+          </div>
+          <div>
+            <h3 style="margin:0 0 8px; font-size:0.95rem;">Compartidas</h3>
+            <div id="lista-tareas-compartidas" class="tareas-list" style="display:flex; flex-direction:column; gap:10px;">
+              <p class="loading-message">Sin tareas compartidas</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal creación/edición de Actividad -->
+  <div id="modal-actividad" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:640px;">
+      <div class="modal-header">
+        <h3 id="modal-act-title">Nueva Actividad</h3>
+        <span class="close-btn-act" style="cursor:pointer;">&times;</span>
+      </div>
+      <form id="form-actividad" class="form-actividad" novalidate>
+        <input type="hidden" id="actividad-id" />
+        <div class="form-row">
+          <label>Nombre de la actividad
+            <input type="text" id="actividad-nombre" required maxlength="200" />
+          </label>
+        </div>
+        <div class="form-row cols-3">
+          <label>Fecha
+            <input type="date" id="actividad-fecha" required />
+          </label>
+          <label>Hora
+            <input type="time" id="actividad-hora" />
+          </label>
+          <label>Duración (min)
+            <input type="number" id="actividad-duracion" min="0" max="1440" step="5" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Tipo de actividad
+            <select id="actividad-tipo">
+              <option value="dentro">Dentro del centro</option>
+              <option value="salida">Salida del centro</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Curso / Grupo
+            <select id="actividad-curso" required multiple size="6" aria-label="Selecciona uno o varios cursos"></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Personal involucrado (separar por comas)
+            <input type="text" id="actividad-personal" placeholder="Ej: Juan Pérez, María López" />
+          </label>
+        </div>
+        <div class="form-row actions" style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+          <button type="button" id="actividad-cancelar" class="btn-accion eliminar">Cancelar</button>
+          <button type="submit" class="btn-accion">Guardar Actividad</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal detalle actividad (solo lectura) -->
+  <div id="modal-actividad-detalle" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-act-detalle-title" aria-hidden="true" style="display:none;">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h3 id="modal-act-detalle-title">Actividad</h3>
+        <span class="close-btn-act-det" style="cursor:pointer;">&times;</span>
+      </div>
+      <div id="actividad-detalle-body" class="detalle-actividad-body" style="display:flex; flex-direction:column; gap:10px; font-size:0.9rem;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button id="actividad-detalle-editar" class="btn-accion editar" style="display:none;">Editar</button>
+        <button id="actividad-detalle-cerrar" class="btn-accion eliminar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para subir documentos -->
+  <div id="modal-documento" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-doc-title" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-doc-title">Subir Documento</h3>
+        <span class="close-btn-doc">&times;</span>
+      </div>
+      <form id="form-documento">
+        <input type="hidden" id="documento-id" />
+        <input type="hidden" id="documento-has-file" value="0" />
+        <div class="form-group">
+          <label for="documento-titulo">Título:</label>
+          <input type="text" id="documento-titulo" required>
+        </div>
+        <div class="form-group">
+          <label for="documento-archivo">Archivo:</label>
+          <input type="file" id="documento-archivo" required>
+          <small id="documento-archivo-info" style="display:none; font-size:0.65rem; color:#374151;">(Se mantendrá el archivo existente si no seleccionas uno nuevo)</small>
+        </div>
+        <button type="submit" class="btn-accion">Subir Documento</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para eliminaciones -->
+  <div id="modal-confirmacion" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="confirm-title">Confirmar</h3>
+        <span class="close-btn">&times;</span>
+      </div>
+      <p id="confirm-message">¿Estás seguro de que quieres eliminar este elemento?</p>
+      <p id="confirm-extra" style="display:none; font-size:0.7rem; color:#991b1b; margin-top:-4px;">Esta acción no se puede deshacer.</p>
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="btn-cancelar" class="btn-accion eliminar">Cancelar</button>
+        <button id="btn-confirmar" class="btn-accion">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carga opcional de configuración local: crea config.js a partir de config.example.js -->
+  <footer style="margin-top:60px;padding:24px 16px;background:#f3f4f6;border-top:1px solid #e5e7eb;">
+    <div style="max-width:960px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,.04);font-size:.58rem;line-height:1.35;color:#374151;">
+      <div><strong>Aplicación creada por:</strong> Diego Alberto Moya Puerta – Maestro de Educación Primaria (Comunidad Autónoma de la Región de Murcia)</div>
+      <div><strong>Contacto:</strong> <a href="mailto:diegoalberto.moya@murciaeduca.es" style="color:#1d4ed8;">diegoalberto.moya@murciaeduca.es</a></div>
+      <div><strong>Licencia:</strong> <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" target="_blank" rel="noopener" style="color:#1d4ed8;">Creative Commons Reconocimiento-CompartirIgual 4.0 (CC BY-SA 4.0)</a></div>
+    </div>
+  </footer>
+  <script src="./config.js" defer></script>
+  <script type="module" src="./app.js"></script>
+</body>
 </html>
