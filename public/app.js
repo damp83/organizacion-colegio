@@ -13,6 +13,21 @@ const notifCloseBtn = document.getElementById('cerrar-panel-notif');
 let notificacionesCache = [];
 let unreadCount = 0;
 let unsubscribeNotificaciones = null;
+// === Global unsubscribe management ===
+// (eliminado: ya declarado arriba en bloque global unsubscribe)
+let unsubscribeAnuncios=null, unsubscribeActividades=null, unsubscribeAgenda=null, unsubscribeSustituciones=null, unsubscribeDocumentos=null;
+// Encuestas ya usa encuestasUnsubscribe más abajo
+const __allUnsubs=[];
+function __track(unsub){ if(typeof unsub==='function'){ __allUnsubs.push(unsub); } return unsub; }
+function __clearAllUnsubs(){
+  while(__allUnsubs.length){ try{ (__allUnsubs.pop())(); }catch{} }
+  unsubscribeNotificaciones=unsubscribeTareasPersonales=unsubscribeTareasCompartidas=null;
+  unsubscribeAnuncios=unsubscribeActividades=unsubscribeAgenda=unsubscribeSustituciones=unsubscribeDocumentos=null;
+  if(typeof encuestasUnsubscribe==='function'){ try{ encuestasUnsubscribe(); }catch{} encuestasUnsubscribe=null; }
+  // Limpiar caches para forzar re-suscripción y re-render tras login
+  try{ actividadesMapCache=new Map(); }catch{}
+  try{ cacheSustituciones=[]; }catch{}
+}
 const MAX_NOTIFS = 30;
 
 function loadNotifReadSet(){ try{ const raw = localStorage.getItem('notif_read_'+appId); if(!raw) return new Set(); const arr=JSON.parse(raw); if(Array.isArray(arr)) return new Set(arr); return new Set(); }catch{ return new Set(); } }
@@ -56,8 +71,8 @@ function actualizarBadgeNotificaciones(){ if(!notifBadge) return; unreadCount = 
 
 function togglePanelNotificaciones(force){ if(!notifPanel) return; const visible = force!=null? force : (notifPanel.style.display!=='flex'); notifPanel.style.display= visible? 'flex':'none'; if(visible){ notifPanel.style.flexDirection='column'; } }
 
-function iniciarNotificacionesListener(){ if(unsubscribeNotificaciones){ try{unsubscribeNotificaciones();}catch{} unsubscribeNotificaciones=null; } try { const col=getPublicCollection('notificaciones'); unsubscribeNotificaciones=onSnapshot(col,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); // ordenar por timestamp desc
-  arr.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)); notificacionesCache=arr.slice(0,MAX_NOTIFS); renderNotificaciones(); actualizarBadgeNotificaciones(); }); }catch(err){ console.warn('No se pudo iniciar listener de notificaciones', err); } }
+function iniciarNotificacionesListener(){ if(unsubscribeNotificaciones){ try{unsubscribeNotificaciones();}catch{} unsubscribeNotificaciones=null; } try { const col=getPublicCollection('notificaciones'); unsubscribeNotificaciones=__track(onSnapshot(col,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()}));
+  arr.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)); notificacionesCache=arr.slice(0,MAX_NOTIFS); renderNotificaciones(); actualizarBadgeNotificaciones(); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] notificaciones',err); })); }catch(err){ console.warn('No se pudo iniciar listener de notificaciones', err); } }
 
 function maybeInitNotifications(){ if(!notifBtn) return; // Mostrar campana sólo si hay usuario autenticado (aunque sea anónimo) para tracking de leídas
   if(auth?.currentUser){ notifBtn.style.display='inline-flex'; iniciarNotificacionesListener(); } else { notifBtn.style.display='none'; if(unsubscribeNotificaciones){ try{unsubscribeNotificaciones();}catch{} unsubscribeNotificaciones=null; } }
@@ -102,6 +117,27 @@ const AUTH_MODE = (()=>{
   return 'popup';
 })();
 console.debug('[Auth] Modo seleccionado:', AUTH_MODE);
+
+// Secciones protegidas: calendario, agenda, sustituciones, encuestas, tareas
+function actualizarAccesoSecciones(){
+  const allowed = !!canWrite; // allowlist o admin ya calculado
+  const protectedIds=['calendario','agenda','sustituciones','encuestas','tareas'];
+  protectedIds.forEach(id=>{
+    const sec=document.getElementById('seccion-'+id);
+    if(!sec) return;
+    const restricted=sec.querySelector('.restricted-msg');
+    if(!restricted) return;
+    if(allowed){
+      restricted.style.display='none';
+      // Mostrar contenido real (ya está en el DOM); nada extra
+      [...sec.children].forEach(ch=>{ if(ch.classList && ch.classList.contains('restricted-msg')) return; ch.style.display=''; });
+    } else {
+      restricted.style.display='block';
+      // Ocultar el resto de elementos funcionales
+      [...sec.children].forEach(ch=>{ if(ch.classList && ch.classList.contains('restricted-msg')) return; ch.style.display='none'; });
+    }
+  });
+}
 const LS_REDIRECT_MARK='pendingRedirectProvider';
 let auth, db, userId=null, isAdmin=false, canWrite=false, didManualLogout=false;
 let lastRedirectResultChecked=false; let lastLoginAttempt=null;
@@ -172,6 +208,10 @@ const listaTareasCompartidas=document.getElementById('lista-tareas-compartidas')
 const inputTareaTitulo=document.getElementById('tarea-titulo');
 const selectTareaTitulo=document.getElementById('tarea-titulo-select');
 const inputFechaLimite=document.getElementById('tarea-fecha-limite');
+// Compartir tareas (multi-select de docentes)
+const selectTareaTipo=document.getElementById('tarea-tipo');
+const compartirWrapper=document.getElementById('tarea-compartir-wrapper');
+const selectCompartirEmails=document.getElementById('tarea-compartir-emails');
 // Filtro estado tareas
 let tareasEstadoFiltro='ALL'; // ALL | Pendiente | 'En proceso' | 'Enviada' | 'Completada'
 
@@ -232,6 +272,10 @@ function ensureTareaEditModal(){
         <textarea name="descripcion" rows="3" maxlength="4000" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;resize:vertical;"></textarea>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;">
+        <label style="font-size:.65rem;font-weight:600;">Enlace Drive / Docs</label>
+        <input name="driveLink" type="url" placeholder="https://..." maxlength="500" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
         <label style="font-size:.65rem;font-weight:600;">Fecha límite</label>
         <input type="date" name="fechaLimite" style="padding:6px 8px;font-size:.72rem;border:1px solid #d1d5db;border-radius:6px;" />
       </div>
@@ -279,14 +323,15 @@ function ensureTareaEditModal(){
     });
   }
 }
-function openTareaEditModal(t){ ensureTareaEditModal(); tareaEditId=t.id; tareaEditRef=t._ref||null; const f=tareaEditForm; if(!f) return; const presetSelect=f.querySelector('select[name="tituloPreset"]'); const tituloInput=f.titulo; const fechaInput=f.querySelector('input[name="fechaLimite"]');
+function openTareaEditModal(t){ ensureTareaEditModal(); tareaEditId=t.id; tareaEditRef=t._ref||null; const f=tareaEditForm; if(!f) return; const presetSelect=f.querySelector('select[name="tituloPreset"]'); const tituloInput=f.titulo; const fechaInput=f.querySelector('input[name="fechaLimite"]'); const driveInput=f.querySelector('input[name="driveLink"]');
   const presetValues=["Acta de evaluación inicial","Reunión padres (1º trimestre)","Reunión padres (2º trimestre)","Reunión padres (3º trimestre)","Acta evaluación (1º trimestre)","Acta evaluación (2º trimestre)","Acta evaluación (3º trimestre)","Programación docente","Informes","PAP","Actas equipo docente","Práctica docente"]; const tituloActual=t.titulo||''; if(presetSelect){ if(presetValues.includes(tituloActual)) presetSelect.value=tituloActual; else if(tituloActual) presetSelect.value='__custom'; else presetSelect.value=''; }
-  tituloInput.value=tituloActual; f.descripcion.value=t.descripcion||''; if(fechaInput){ if(t.fechaLimite){ try{ const d=new Date(t.fechaLimite); const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; fechaInput.value=iso; }catch{ fechaInput.value=''; } } else fechaInput.value=''; }
+  tituloInput.value=tituloActual; f.descripcion.value=t.descripcion||''; if(driveInput) driveInput.value=t.driveLink||''; if(fechaInput){ if(t.fechaLimite){ try{ const d=new Date(t.fechaLimite); const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; fechaInput.value=iso; }catch{ fechaInput.value=''; } } else fechaInput.value=''; }
   const estado=t.estado|| (t.completada?'Completada':'Pendiente'); f.estado.value=['Pendiente','En proceso','Enviada','Completada'].includes(estado)?estado:'Pendiente'; const chk=f.querySelector('#tarea-edit-completada'); chk.checked= (f.estado.value==='Completada') || !!t.completada; tareaEditModal.style.display='flex'; }
 function closeTareaEditModal(){ if(tareaEditModal) tareaEditModal.style.display='none'; tareaEditId=null; tareaEditRef=null; }
-async function onSubmitEditarTarea(e){ e.preventDefault(); if(!requireAuth()) return; if(!tareaEditId || !tareaEditRef) return; const f=tareaEditForm; const titulo=f.titulo.value.trim(); if(!titulo){ notifyWarn('Título requerido'); return; } const descripcion=f.descripcion.value.trim(); const estado=f.estado.value; const chk=f.querySelector('#tarea-edit-completada'); const fechaInput=f.querySelector('input[name="fechaLimite"]'); const completada=estado==='Completada' || chk.checked; let tipoActual='Personal'; let fechaLimite=null; if(fechaInput && fechaInput.value){ try{ const d=new Date(fechaInput.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
-  try{ const d=await getDoc(tareaEditRef); if(d.exists()){ const data=d.data(); if(data.tipo) tipoActual=data.tipo; } }catch{}
-  const patch={ titulo, descripcion:descripcion||'', estado, completada, timestamp:Date.now(), tipo:tipoActual, createdBy:userId }; if(fechaLimite!=null) patch.fechaLimite=fechaLimite; if(completada) patch.fechaFin=Date.now(); else patch.fechaFin=null; try{ await updateDoc(tareaEditRef,patch); notifySuccess('Tarea actualizada'); closeTareaEditModal(); }catch{ notifyError('No se pudo actualizar'); } }
+async function onSubmitEditarTarea(e){ e.preventDefault(); if(!requireAuth()) return; if(!tareaEditId || !tareaEditRef) return; const f=tareaEditForm; const titulo=f.titulo.value.trim(); if(!titulo){ notifyWarn('Título requerido'); return; } const descripcion=f.descripcion.value.trim(); const driveLink=(f.driveLink && f.driveLink.value.trim())?f.driveLink.value.trim():null; const estado=f.estado.value; const chk=f.querySelector('#tarea-edit-completada'); const fechaInput=f.querySelector('input[name="fechaLimite"]'); const completada=estado==='Completada' || chk.checked; let tipoActual='Personal'; let fechaLimite=null; if(fechaInput && fechaInput.value){ try{ const d=new Date(fechaInput.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
+  let existingCreatedBy=null; try{ const d=await getDoc(tareaEditRef); if(d.exists()){ const data=d.data(); if(data.tipo) tipoActual=data.tipo; if(data.createdBy) existingCreatedBy=data.createdBy; } }catch{}
+  if(!existingCreatedBy){ try{ existingCreatedBy = auth?.currentUser?.uid || userId; }catch{} }
+  const patch={ titulo, descripcion:descripcion||'', driveLink:driveLink||null, estado, completada, timestamp:Date.now(), tipo:tipoActual, createdBy: existingCreatedBy }; if(fechaLimite!=null) patch.fechaLimite=fechaLimite; if(completada) patch.fechaFin=Date.now(); else patch.fechaFin=null; try{ await updateDoc(tareaEditRef,patch); notifySuccess('Tarea actualizada'); closeTareaEditModal(); }catch(err){ console.error('Update tarea error', {path:tareaEditRef.path, patch}, err); notifyError('No se pudo actualizar'); } }
 
 function renderizarTareas(cont, tareas, tipo){
   if(!cont) return; cont.innerHTML='';
@@ -322,7 +367,8 @@ function renderizarTareas(cont, tareas, tipo){
       else grupos.proximas.push(t);
     } else grupos.sinFecha.push(t);
   });
-  // Orden grupos y labels
+    // Guardar última copia para filtros
+    if(tipo==='personales') window.__lastTareasPersonales=tareas.slice(); else if(tipo==='compartidas') window.__lastTareasCompartidas=tareas.slice();
   const ordenRender=[['urgentes','Urgentes / Vencen ya'],['semana','Esta semana'],['proximas','Próximas'],['sinFecha','Sin fecha límite'],['completadas','Completadas']];
   // Orden especial para completadas: por fechaFin desc, luego timestamp desc
   grupos.completadas.sort((a,b)=>{ const af=a.fechaFin||0; const bf=b.fechaFin||0; if(bf!==af) return bf-af; return (b.timestamp||0)-(a.timestamp||0); });
@@ -339,6 +385,10 @@ function renderizarTareas(cont, tareas, tipo){
   toggle.addEventListener('click',()=>{ collapsedState[key]= !collapsedState[key]; groupBody.style.display= collapsedState[key] ? 'none':'flex'; toggle.textContent= collapsedState[key] ? '▶':'▼'; });
   wrapper.appendChild(heading); wrapper.appendChild(groupBody); cont.appendChild(wrapper);
   list.forEach(t=>{
+      // Filtrar tareas compartidas restringidas: si tiene compartirCon no vacío y el usuario no está incluido ni es creador -> omitir
+      if(t.tipo==='Compartida' && Array.isArray(t.compartirCon) && t.compartirCon.length>0){
+        const emailActual=auth?.currentUser?.email; const uidActual=auth?.currentUser?.uid; if(!(t.compartirCon.includes(emailActual) || t.createdBy===emailActual || t.createdBy===uidActual)) return;
+      }
       // (Elemento tarea original reutilizado)
       const el=document.createElement('div');
       el.className='tarea-item';
@@ -357,10 +407,19 @@ function renderizarTareas(cont, tareas, tipo){
       meta.innerHTML=t.completada?`Completada ${t.fechaFin?new Date(t.fechaFin).toLocaleDateString('es-ES'):''}${extraFecha}`:`Creada ${t.timestamp?new Date(t.timestamp).toLocaleDateString('es-ES'):''}${extraFecha}`;
       const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
       const btnEdit=document.createElement('button'); btnEdit.type='button'; btnEdit.textContent='Editar'; btnEdit.className='btn-accion editar'; btnEdit.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnEdit.addEventListener('click',()=>openTareaEditModal(t));
-      const btnComplete=document.createElement('button'); btnComplete.type='button'; btnComplete.textContent=t.completada?'Reabrir':'Completar'; btnComplete.className='btn-accion'; btnComplete.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; try{ const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; const patch={ completada:nowCompleted, timestamp:Date.now(), createdBy:t.createdBy||userId, tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida') }; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; } await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch{ notifyError('No se pudo actualizar'); } });
+  const btnComplete=document.createElement('button'); btnComplete.type='button'; btnComplete.textContent=t.completada?'Reabrir':'Completar'; btnComplete.className='btn-accion'; btnComplete.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; let createdByOriginal=t.createdBy; if(!createdByOriginal){ try{ const snap=await getDoc(ref); if(snap.exists()) createdByOriginal=snap.data().createdBy; }catch{} } if(!createdByOriginal) createdByOriginal=auth?.currentUser?.uid||userId; const patch={ titulo:t.titulo||'(sin título)', descripcion:t.descripcion||'', completada:nowCompleted, timestamp:Date.now(), tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida'), createdBy:createdByOriginal }; if(t.driveLink) patch.driveLink=t.driveLink; if(t.fechaLimite) patch.fechaLimite=t.fechaLimite; if(Array.isArray(t.compartirCon)) patch.compartirCon=[...t.compartirCon]; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; else if(t.estado) patch.estado=t.estado; } try{ await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch(err){ console.error('Toggle completar error', {path:ref.path, original:t, patch, err}); notifyError('No se pudo actualizar'); } });
       const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='Eliminar'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnDel.addEventListener('click',()=>{ if(!requireAuth()) return; showConfirmation('¿Eliminar tarea?', async()=>{ try{ const ref=t._ref; if(!ref) return; const backupData={...t}; delete backupData._ref; await deleteDoc(ref); lastDeletedTarea={ ref, data: backupData }; if(lastDeletedTimeout) clearTimeout(lastDeletedTimeout); lastDeletedTimeout=setTimeout(()=>{ lastDeletedTarea=null; },15000); notifyWithAction('Tarea eliminada','Deshacer',async()=>{ if(!lastDeletedTarea) return; const {ref:restoreRef,data}=lastDeletedTarea; lastDeletedTarea=null; try{ const restore={...data}; if(!restore.createdBy) restore.createdBy=userId; if(!restore.timestamp) restore.timestamp=Date.now(); if(restore.tipo!=='Personal' && restore.tipo!=='Compartida') restore.tipo = (tipo==='personales'?'Personal':'Compartida'); await setDoc(restoreRef,restore); notifySuccess('Restaurada'); }catch{ notifyError('No se pudo restaurar'); } }, { type:'warn', timeout:15000 }); }catch{ notifyError('Error al eliminar'); } }, { title:'Eliminar', danger:true }); });
       actions.append(btnEdit,btnComplete,btnDel);
-  el.append(header,desc,meta,actions); groupBody.appendChild(el);
+      if(t.driveLink){
+        const link=document.createElement('a'); link.href=t.driveLink; link.target='_blank'; link.rel='noopener'; link.textContent='Archivo'; link.style.cssText='position:absolute;top:8px;right:8px;font-size:.55rem;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:12px;text-decoration:none;font-weight:600;'; el.appendChild(link); }
+      // Recipients display
+      if(t.tipo==='Compartida' && Array.isArray(t.compartirCon)){
+        const rec=document.createElement('div'); rec.style.cssText='font-size:.55rem;color:#475569;display:flex;flex-wrap:wrap;gap:2px;';
+        if(t.compartirCon.length===0) rec.innerHTML='<em>Compartida con todo el claustro</em>';
+        else rec.innerHTML = 'Con: ' + t.compartirCon.map(e=>`<span style="background:#e2e8f0;padding:2px 4px;border-radius:4px;">${e}</span>`).join(' ');
+        el.appendChild(rec);
+      }
+      el.append(header,desc,meta,actions); groupBody.appendChild(el);
     });
   });
   if(!rendered) cont.innerHTML='<p class="loading-message">No hay tareas con ese filtro</p>';
@@ -396,7 +455,7 @@ function renderizarTareas(cont, tareas, tipo){
     const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
     const btnEdit=document.createElement('button'); btnEdit.type='button'; btnEdit.textContent='Editar'; btnEdit.className='btn-accion editar'; btnEdit.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;'; btnEdit.addEventListener('click',()=>openTareaEditModal(t));
     const btnComplete=document.createElement('button'); btnComplete.type='button'; btnComplete.textContent=t.completada?'Reabrir':'Completar'; btnComplete.className='btn-accion'; btnComplete.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;';
-  btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; try{ const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; const patch={ completada:nowCompleted, timestamp:Date.now(), createdBy:t.createdBy||userId, tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida') }; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; } await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch{ notifyError('No se pudo actualizar'); } });
+  btnComplete.addEventListener('click',async()=>{ if(!requireAuth()) return; const ref=t._ref; if(!ref) return; const nowCompleted=!t.completada; let createdByOriginal=t.createdBy; if(!createdByOriginal){ try{ const snap=await getDoc(ref); if(snap.exists()) createdByOriginal=snap.data().createdBy; }catch{} } if(!createdByOriginal) createdByOriginal=auth?.currentUser?.uid||userId; const patch={ titulo:t.titulo||'(sin título)', descripcion:t.descripcion||'', completada:nowCompleted, timestamp:Date.now(), tipo:t.tipo|| (tipo==='personales'?'Personal':'Compartida'), createdBy:createdByOriginal }; if(t.driveLink) patch.driveLink=t.driveLink; if(t.fechaLimite) patch.fechaLimite=t.fechaLimite; if(nowCompleted){ patch.fechaFin=Date.now(); patch.estado='Completada'; } else { patch.fechaFin=null; if(t.estado==='Completada') patch.estado='Pendiente'; else if(t.estado) patch.estado=t.estado; } try{ await updateDoc(ref, patch); notifySuccess(nowCompleted?'Tarea completada':'Marcada como pendiente'); }catch(err){ console.error('Toggle completar error', {path:ref.path, original:t, patch, err}); notifyError('No se pudo actualizar'); } });
     const btnDel=document.createElement('button'); btnDel.type='button'; btnDel.textContent='Eliminar'; btnDel.className='btn-accion eliminar'; btnDel.style.cssText='margin-top:0;padding:4px 8px;font-size:.6rem;';
     btnDel.addEventListener('click',()=>{ if(!requireAuth()) return; showConfirmation('¿Eliminar tarea?', async()=>{ try{ const ref=t._ref; if(!ref) return; // guardar datos para deshacer
           const backupData={...t}; delete backupData._ref; // limpiar ref
@@ -429,14 +488,70 @@ function setupTareas(){ if(!formTarea) return; if(formTarea.dataset.bind==='1') 
       inputTareaTitulo.value=selectTareaTitulo.value;
     });
   }
+
+  // Poblar multi-select con allowlist (si disponible) solo una vez
+  if(selectCompartirEmails && selectCompartirEmails.options.length===0 && typeof ALLOWLIST_EMAILS!=='undefined'){
+    try{ [...ALLOWLIST_EMAILS].sort().forEach(email=>{ const o=document.createElement('option'); o.value=email; o.textContent=email; selectCompartirEmails.appendChild(o); }); }catch{}
+  }
+
+  // Mostrar/ocultar wrapper según tipo seleccionada
+  function toggleCompartir(){ if(!selectTareaTipo || !compartirWrapper) return; if(selectTareaTipo.value==='Compartida'){ compartirWrapper.style.display='flex'; } else { compartirWrapper.style.display='none'; if(selectCompartirEmails){ [...selectCompartirEmails.options].forEach(o=>o.selected=false); } } }
+  if(selectTareaTipo){ selectTareaTipo.addEventListener('change',toggleCompartir); toggleCompartir(); }
   ensureTareasFiltroToolbar();
-  formTarea.addEventListener('submit',async e=>{ e.preventDefault(); if(!requireAuth()) return; const rawTitulo=inputTareaTitulo.value.trim(); if(!rawTitulo){ notifyWarn('Título requerido'); return; } const descripcion=document.getElementById('tarea-descripcion').value.trim(); let tipo=document.getElementById('tarea-tipo').value||'Personal'; if(tipo!=='Personal' && tipo!=='Compartida') tipo='Personal'; const uid=auth?.currentUser?.uid; if(!uid){ notifyWarn('Usuario aún no inicializado, intenta de nuevo'); return; } if(!userId) userId=uid; let fechaLimite=null; if(inputFechaLimite && inputFechaLimite.value){ try{ const d=new Date(inputFechaLimite.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
-    const data={ titulo:rawTitulo, descripcion:descripcion||'', tipo, completada:false, estado:'Pendiente', fechaFin:null, fechaLimite, timestamp:Date.now(), createdBy:uid };
-    try{ if(tipo==='Personal'){ const col=collection(db,`artifacts/${appId}/users/${uid}/tareas`); await addDoc(col,data); notifySuccess('Tarea personal añadida'); } else { const col=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); await addDoc(col,data); notifySuccess('Tarea compartida añadida'); } formTarea.reset(); if(selectTareaTitulo) selectTareaTitulo.value=''; }
+  formTarea.addEventListener('submit',async e=>{ e.preventDefault(); if(!requireAuth()) return; const rawTitulo=inputTareaTitulo.value.trim(); if(!rawTitulo){ notifyWarn('Título requerido'); return; } const descripcion=document.getElementById('tarea-descripcion').value.trim(); const driveLinkInput=document.getElementById('tarea-drive-link'); const driveLink=(driveLinkInput && driveLinkInput.value.trim())?driveLinkInput.value.trim():null; let tipo=(selectTareaTipo?selectTareaTipo.value:document.getElementById('tarea-tipo')?.value)||'Personal'; if(tipo!=='Personal' && tipo!=='Compartida') tipo='Personal'; const uid=auth?.currentUser?.uid; if(!uid){ notifyWarn('Usuario aún no inicializado, intenta de nuevo'); return; } if(!userId) userId=uid; let fechaLimite=null; if(inputFechaLimite && inputFechaLimite.value){ try{ const d=new Date(inputFechaLimite.value+'T00:00:00'); if(!isNaN(d.getTime())) fechaLimite=d.getTime(); }catch{} }
+    const data={ titulo:rawTitulo, descripcion:descripcion||'', driveLink:driveLink||null, tipo, completada:false, estado:'Pendiente', fechaFin:null, fechaLimite, timestamp:Date.now(), createdBy:uid };
+    if(tipo==='Compartida'){
+      let compartirCon=[]; if(selectCompartirEmails){ compartirCon=[...selectCompartirEmails.options].filter(o=>o.selected).map(o=>o.value); }
+      if(Array.isArray(compartirCon)) data.compartirCon=compartirCon; else data.compartirCon=[];
+    }
+    try{ if(tipo==='Personal'){ const col=collection(db,`artifacts/${appId}/users/${uid}/tareas`); await addDoc(col,data); notifySuccess('Tarea personal añadida'); } else { const col=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); await addDoc(col,data); notifySuccess('Tarea compartida añadida'); } formTarea.reset(); if(selectTareaTitulo) selectTareaTitulo.value=''; toggleCompartir(); }
     catch(err){ console.error('Error creando tarea',err); notifyError('No se pudo guardar (revise consola)'); }
   }); }
 
-function iniciarListenersTareas(){ if(!userId || !db) return; if(unsubscribeTareasPersonales){ try{unsubscribeTareasPersonales();}catch{} unsubscribeTareasPersonales=null; } if(unsubscribeTareasCompartidas){ try{unsubscribeTareasCompartidas();}catch{} unsubscribeTareasCompartidas=null; } try{ const colPers=collection(db,`artifacts/${appId}/users/${userId}/tareas`); unsubscribeTareasPersonales=onSnapshot(colPers,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colPers,d.id),...d.data()})); renderizarTareas(listaTareasPersonales,arr,'personales'); }); }catch{} try{ const colComp=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); unsubscribeTareasCompartidas=onSnapshot(colComp,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colComp,d.id),...d.data()})); renderizarTareas(listaTareasCompartidas,arr,'compartidas'); }); }catch{} }
+function iniciarListenersTareas(){ if(!userId || !db) return; if(unsubscribeTareasPersonales){ try{unsubscribeTareasPersonales();}catch{} unsubscribeTareasPersonales=null; } if(unsubscribeTareasCompartidas){ try{unsubscribeTareasCompartidas();}catch{} unsubscribeTareasCompartidas=null; } try{ const colPers=collection(db,`artifacts/${appId}/users/${userId}/tareas`); unsubscribeTareasPersonales=__track(onSnapshot(colPers,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colPers,d.id),...d.data()})); renderizarTareas(listaTareasPersonales,arr,'personales'); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] tareas personales',err); })); }catch{} try{ const colComp=collection(db,`artifacts/${appId}/public/data/tareas_compartidas`); unsubscribeTareasCompartidas=__track(onSnapshot(colComp,qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,_ref:doc(colComp,d.id),...d.data()})); renderizarTareas(listaTareasCompartidas,arr,'compartidas'); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] tareas compartidas',err); })); }catch{} }
+
+// Intento puntual de borrar tarea legacy concreta por título (manual)
+async function forceDeleteLegacyTareaPorTitulo(tituloBuscado){
+  if(!db||!auth?.currentUser) return;
+  const uid=auth.currentUser.uid;
+  try{
+    const colRef=collection(db,`artifacts/${appId}/users/${uid}/tareas`);
+    const snap=await getDocs(colRef);
+    for(const d of snap.docs){
+      const data=d.data();
+      if((data.titulo||'').toLowerCase().trim()===tituloBuscado.toLowerCase().trim()){
+        try{ await deleteDoc(doc(colRef,d.id)); console.info('Legacy tarea eliminada forzada:', d.id, data.titulo); }catch(err){ console.warn('No se pudo borrar legacy tarea', d.id, err); }
+      }
+    }
+  }catch(err){ console.warn('Error buscando tareas legacy', err); }
+}
+// Exponer en window para ejecutar desde consola si se desea
+window.forceDeleteLegacyTareaPorTitulo=forceDeleteLegacyTareaPorTitulo;
+
+// Migración ligera de tareas legacy: añade campos mínimos faltantes para pasar reglas
+let legacyMigrationRan=false;
+async function migrateLegacyTareas(tareas,tipo){
+  if(legacyMigrationRan) return;
+  const key='legacy_tareas_migrated_v1';
+  if(localStorage.getItem(key)==='1') { legacyMigrationRan=true; return; }
+  const fixes=[];
+  tareas.forEach(t=>{
+    const patch={};
+    let needs=false;
+    if(typeof t.completada !== 'boolean'){ patch.completada=false; needs=true; }
+    if(!t.tipo || (t.tipo!=='Personal' && t.tipo!=='Compartida')){ patch.tipo = (tipo==='personales'?'Personal':'Compartida'); needs=true; }
+    if(typeof t.timestamp !== 'number'){ patch.timestamp = Date.now(); needs=true; }
+    // No tocamos createdBy para no romper ownership de email
+    if(needs && t._ref) fixes.push({ref:t._ref,patch});
+  });
+  if(!fixes.length){ legacyMigrationRan=true; localStorage.setItem(key,'1'); return; }
+  for(const f of fixes){ try{ await updateDoc(f.ref,f.patch); }catch(err){ console.warn('Migración tarea legacy falló', f.ref?.path, err); } }
+  legacyMigrationRan=true; localStorage.setItem(key,'1');
+}
+
+// Hook migration after each render (arrays almacenadas globalmente)
+const _origRenderTareas = renderizarTareas;
+renderizarTareas = function(cont,tareas,tipo){ const r=_origRenderTareas(cont,tareas,tipo); try{ migrateLegacyTareas(tareas,tipo); }catch{} return r; };
 
 // Calendario
 const calendarGrid=document.getElementById('calendar-grid');
@@ -468,6 +583,87 @@ function notifyWithAction(msg,actionLabel,callback,{type='info',timeout=6000}={}
 
 // Firestore helper
 const getPublicCollection=name=>collection(db,`artifacts/${appId}/public/data/${name}`);
+
+// Utilidad: eliminar documentos por nombre (campo "nombre") o por nombre de archivo (campo "archivo") desde consola
+async function deleteDocumentoPorNombre(nombreBuscado){
+  try{
+    if(!db||!auth?.currentUser){ console.warn('Auth requerido'); return; }
+    const objetivo=nombreBuscado.trim().toLowerCase();
+    const snap=await getDocs(getPublicCollection('documentos'));
+    let eliminados=0;
+    for(const d of snap.docs){
+      const data=d.data();
+      const n=(data.nombre||'').trim().toLowerCase();
+      const a=(data.archivo||'').trim().toLowerCase();
+      if(n===objetivo || a===objetivo){
+        try{ await deleteDoc(doc(getPublicCollection('documentos'),d.id)); eliminados++; }
+        catch(e){ console.error('Error eliminando', d.id, e); }
+      }
+    }
+    console.info('Documentos eliminados que coinciden (nombre o archivo) con', nombreBuscado, ':', eliminados);
+  }catch(e){ console.error('Fallo listando documentos', e); }
+}
+// Variante por fecha y nombre exactos (fecha formato mostrado en campo `fecha`)
+async function deleteDocumentoPorFechaNombre(fecha,nombreBuscado){
+  try{
+    if(!db||!auth?.currentUser){ console.warn('Auth requerido'); return; }
+    const snap=await getDocs(getPublicCollection('documentos'));
+    let eliminados=0;
+    for(const d of snap.docs){
+      const data=d.data();
+      const candidato=(data.archivo||data.nombre||'').trim().toLowerCase();
+      if(candidato===nombreBuscado.trim().toLowerCase() && (data.fecha||'')===fecha){
+        try{ await deleteDoc(doc(getPublicCollection('documentos'),d.id)); eliminados++; }
+        catch(e){ console.error('Error eliminando', d.id, e); }
+      }
+    }
+    console.info(`Documentos eliminados (${eliminados}) para fecha ${fecha} y nombre ${nombreBuscado}`);
+  }catch(e){ console.error('Fallo listando documentos', e); }
+}
+window.deleteDocumentoPorNombre=deleteDocumentoPorNombre;
+window.deleteDocumentoPorFechaNombre=deleteDocumentoPorFechaNombre;
+async function deleteDocumentoPorId(id){
+  try{ if(!db||!auth?.currentUser){ console.warn('Auth requerido'); return; }
+    await deleteDoc(doc(getPublicCollection('documentos'),id));
+    console.info('Documento eliminado por id', id);
+  }catch(e){ console.error('Error eliminando por id', id, e); }
+}
+window.deleteDocumentoPorId=deleteDocumentoPorId;
+
+// Listar documentos (id, archivo, nombre, createdBy) para localizar legacy
+async function listDocumentos(){
+  if(!db){ console.warn('DB no init'); return; }
+  const snap=await getDocs(getPublicCollection('documentos'));
+  const out=[];
+  snap.forEach(d=>{ const data=d.data(); out.push({id:d.id, archivo:data.archivo, nombre:data.nombre, createdBy:data.createdBy||null, fecha:data.fecha}); });
+  console.table(out);
+  return out;
+}
+window.listDocumentos=listDocumentos;
+
+// Normalizar (adoptar) documento legacy estableciendo createdBy actual y timestamp, por id o por nombre
+async function normalizarDocumentoPorId(id){
+  if(!db||!auth?.currentUser){ console.warn('Auth requerido'); return; }
+  const ref=doc(getPublicCollection('documentos'),id);
+  try{
+    const snap=await getDoc(ref);
+    if(!snap.exists()){ console.warn('No existe doc',id); return; }
+    const data=snap.data();
+    if(data.createdBy){ console.info('Ya tiene createdBy'); return; }
+    await updateDoc(ref,{ createdBy:auth.currentUser.uid, timestamp: Date.now() });
+    console.info('Normalizado', id);
+  }catch(e){ console.error('Error normalizando',id,e); }
+}
+window.normalizarDocumentoPorId=normalizarDocumentoPorId;
+
+async function normalizarDocumento(nombreBuscado){
+  const objetivo=nombreBuscado.trim().toLowerCase();
+  const docs=await listDocumentos();
+  const match=docs.filter(d=> (d.nombre||'').trim().toLowerCase()===objetivo || (d.archivo||'').trim().toLowerCase()===objetivo);
+  if(!match.length){ console.warn('Sin coincidencias'); return; }
+  for(const m of match){ await normalizarDocumentoPorId(m.id); }
+}
+window.normalizarDocumento=normalizarDocumento;
 
 // Seed demo
 async function seedDemoDataIfRequested(){ try{ const params=new URLSearchParams(location.search); if(!params.get('seed')) return; const sets=['documentos','anuncios','actividades','agenda']; for(const c of sets){ const snap=await getDocs(getPublicCollection(c)); if(!snap.empty) continue; const now=Date.now(); if(c==='documentos') await addDoc(getPublicCollection('documentos'),{ nombre:'Documento Ejemplo', archivo:'ejemplo.txt', archivoBase64:btoa('Contenido ejemplo'), mimeType:'text/plain', size:16, fecha:new Date().toLocaleDateString('es-ES'), timestamp:now, createdBy:userId||null }); if(c==='anuncios') await addDoc(getPublicCollection('anuncios'),{ texto:'Aviso inicial', timestamp:now, createdBy:userId||null }); if(c==='actividades'){ const d=new Date(); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(Math.min(28,d.getDate())).padStart(2,'0'); await addDoc(getPublicCollection('actividades'),{ title:'Reunión', date:`${y}-${m}-${day}`, tipo:'dentro', curso:['1º Primaria A'], timestamp:now, createdBy:userId||null }); } if(c==='agenda'){ const d=new Date(); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(Math.min(28,d.getDate())).padStart(2,'0'); await addDoc(getPublicCollection('agenda'),{ title:'Seguimiento', date:`${y}-${m}-${day}`, status:'Programada', description:'Revisión', documento:'', timestamp:now, createdBy:userId||null }); } } }catch{} }
@@ -606,21 +802,16 @@ if(calendarPrintBtn){
 
 // Firestore listeners
 function setupFirestoreListeners(){
-  const wrap=(label,cb)=>withTry=>onSnapshot(
-    getPublicCollection(label),
-    qs=>{ try{ cb(qs); }catch(e){ console.error('[Render error]',label,e); } },
-    err=>{ console.error('[Snapshot error]',label,err); if(err?.code==='permission-denied') notifyWarn(`Permiso denegado en ${label}`); }
-  );
   // Documentos
-  onSnapshot(getPublicCollection('documentos'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarDocumentos(arr); }, err=>{ console.error('[Snapshot error] documentos',err); });
+  if(!unsubscribeDocumentos) unsubscribeDocumentos=__track(onSnapshot(getPublicCollection('documentos'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarDocumentos(arr); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] documentos',err); }));
   // Anuncios
-  onSnapshot(getPublicCollection('anuncios'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); }, err=>{ console.error('[Snapshot error] anuncios',err); });
+  if(!unsubscribeAnuncios) unsubscribeAnuncios=__track(onSnapshot(getPublicCollection('anuncios'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); arr.sort((a,b)=>a.timestamp-b.timestamp); renderizarAnuncios(arr); marcarNuevos('anuncios',arr); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] anuncios',err); }));
   // Actividades
-  onSnapshot(getPublicCollection('actividades'), qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); }, err=>{ console.error('[Snapshot error] actividades',err); });
+  if(!unsubscribeActividades) unsubscribeActividades=__track(onSnapshot(getPublicCollection('actividades'), qs=>{ actividadesMapCache=new Map(); const all=[]; qs.forEach(ds=>{ const data=ds.data(); const k=data.date; if(!actividadesMapCache.has(k)) actividadesMapCache.set(k,[]); const obj={id:ds.id,...data}; actividadesMapCache.get(k).push(obj); all.push(obj); }); document.querySelectorAll('.day-cell').forEach(c=>{ if(!c.classList.contains('other-month')) c.activities=actividadesMapCache.get(c.dataset.date)||[]; }); renderizarActividades(); marcarNuevos('actividades',all); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] actividades',err); }));
   // Agenda
-  onSnapshot(getPublicCollection('agenda'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); }, err=>{ console.error('[Snapshot error] agenda',err); });
+  if(!unsubscribeAgenda) unsubscribeAgenda=__track(onSnapshot(getPublicCollection('agenda'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarAgenda(arr); marcarNuevos('agenda',arr); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] agenda',err); }));
   // Sustituciones
-  onSnapshot(getPublicCollection('sustituciones'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); }, err=>{ console.error('[Snapshot error] sustituciones',err); });
+  if(!unsubscribeSustituciones) unsubscribeSustituciones=__track(onSnapshot(getPublicCollection('sustituciones'), qs=>{ const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()})); renderizarSustituciones(arr); marcarNuevos('sustituciones',arr); }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] sustituciones',err); }));
   // Encuestas
   if(typeof setupEncuestasRealtime==='function') setupEncuestasRealtime();
   setupTareas(); iniciarListenersTareas();
@@ -873,13 +1064,12 @@ function setupEncuestas(){
 }
 function setupEncuestasRealtime(){
   if(encuestasUnsubscribe) return; // evitar duplicar
-  encuestasUnsubscribe=onSnapshot(getPublicCollection('encuestas'),async qs=>{
+  encuestasUnsubscribe=__track(onSnapshot(getPublicCollection('encuestas'),async qs=>{
     const arr=[]; qs.forEach(d=>arr.push({id:d.id,...d.data()}));
     encuestasCache=arr;
-    // Para cada encuesta comprobar subcolección votos para el usuario para decidir UI (optimización: se usa localStorage, pero se podría verificar)
     renderizarEncuestas();
     marcarNuevos('encuestas',arr);
-  });
+  }, err=>{ if(err?.code!=='permission-denied') console.error('[Snapshot error] encuestas',err); }));
   setupEncuestas();
 }
 
@@ -1013,11 +1203,14 @@ window.addEventListener('click',e=>{ if(e.target===modalConfirmacion){ modalConf
 
 // Auth init
 async function initAuth(){ if(location.protocol==='file:'){ notifyWarn('Abra la aplicación mediante HTTP/HTTPS'); return; } if(!firebaseConfig.apiKey){ userDisplay.textContent='Config Firebase faltante'; return; } const app=initializeApp(firebaseConfig); auth=getAuth(app); try{ await setPersistence(auth,browserLocalPersistence); }catch{} db=getFirestore(app); try{ const rr=await getRedirectResult(auth); if(rr) localStorage.removeItem(LS_REDIRECT_MARK); lastRedirectResultChecked=true; }catch{} const useEmu=(location.hostname==='localhost'||location.hostname==='127.0.0.1'); if(useEmu){ try{connectAuthEmulator(auth,'http://localhost:9099');}catch{} try{connectFirestoreEmulator(db,'localhost',8080);}catch{} }
-onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; if(!actividadesMapCache.size){ setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); } iniciarListenersTareas(); maybeInitNotifications(); requestPushPermissionIfNeeded(); syncNotifReadFromRemote(); didManualLogout=false; return; } if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); iniciarListenersTareas(); maybeInitNotifications(); });
+ onAuthStateChanged(auth, async user=>{ if(!user && lastRedirectResultChecked && localStorage.getItem(LS_REDIRECT_MARK)) localStorage.removeItem(LS_REDIRECT_MARK); if(user){ userId=user.uid; let tok=null; try{ tok=await getIdTokenResult(user,true); isAdmin=!!(tok&&tok.claims&&tok.claims.admin);}catch{} canWrite=computeCanWrite(user,isAdmin); console.debug('AUTH STATE', {uid:user.uid,email:user.email,isAdmin,canWrite,claims:tok?.claims}); const email=(user.email||'').toLowerCase()||'(sin email)'; userDisplay.textContent=`${email}${isAdmin?' (admin)':(!canWrite?' (solo lectura)':'')}`; try{ btnSubirDocumento.style.display=canWrite?'inline-flex':'none'; formAnuncio.querySelector('button[type="submit"]').disabled=!canWrite; formAgenda.querySelector('button[type="submit"]').disabled=!canWrite; }catch{} btnLogout&&(btnLogout.style.display='inline-block'); if(btnLoginGoogle) btnLoginGoogle.style.display=user.isAnonymous?'inline-block':'none'; // Siempre re-montar listeners tras login
+  setupFirestoreListeners(); renderizarCalendario(); seedDemoDataIfRequested(); iniciarListenersTareas(); maybeInitNotifications(); requestPushPermissionIfNeeded(); syncNotifReadFromRemote(); actualizarAccesoSecciones(); didManualLogout=false; return; } // user signed out
+ __clearAllUnsubs();
+ if(didManualLogout){ userDisplay.textContent='No conectado'; btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); actualizarAccesoSecciones(); return; } if(!localStorage.getItem(LS_REDIRECT_MARK)){ try{ await signInAnonymously(auth); }catch{} } userDisplay.textContent='Usuario anónimo'; canWrite=false; try{ btnSubirDocumento.style.display='none'; formAnuncio.querySelector('button[type="submit"]').disabled=true; formAgenda.querySelector('button[type="submit"]').disabled=true; }catch{} btnLogout&&(btnLogout.style.display='none'); btnLoginGoogle&&(btnLoginGoogle.style.display='inline-block'); iniciarListenersTareas(); maybeInitNotifications(); actualizarAccesoSecciones(); });
 }
 
 // Login/Logout
-btnLogout?.addEventListener('click',async()=>{ try{ didManualLogout=true; await signOut(auth); }catch{} });
+btnLogout?.addEventListener('click',async()=>{ try{ didManualLogout=true; __clearAllUnsubs(); await signOut(auth); }catch{} });
 btnLoginGoogle?.addEventListener('click',async()=>{ if(btnLoginGoogle.disabled) return; didManualLogout=false; const provider=new GoogleAuthProvider(); provider.setCustomParameters({ prompt:'select_account' }); lastLoginAttempt={ provider:'google', ts:Date.now() }; try{ if(AUTH_MODE==='popup'){ await signInWithPopup(auth,provider); } else { localStorage.setItem(LS_REDIRECT_MARK,'google'); await signInWithRedirect(auth,provider); } }catch(e){ const code=e?.code||''; if(code.includes('popup-blocked')||code.includes('popup-closed-by-user')){ try{ btnLoginGoogle.disabled=true; btnLoginGoogle.textContent='Redirigiendo...'; localStorage.setItem(LS_REDIRECT_MARK,'google'); await signInWithRedirect(auth,provider); }catch{} } } });
 // Lógica Microsoft eliminada
 

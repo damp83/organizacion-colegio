@@ -8,3 +8,6 @@
   <rect width="64" height="64" rx="12" fill="url(#g)"/>
   <text x="50%" y="54%" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#fff">CA</text>
 </svg>
+
+
+flutterfire configure --project organizacioncentro-d3cd7 --platforms=web,windows

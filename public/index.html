@@ -138,7 +138,20 @@
       <!-- Sección de Calendario -->
       <section id="seccion-calendario" class="seccion">
   <h2>Calendario de Actividades</h2>
-        <img src="./logo.svg" alt="Logo" class="print-logo" style="display:none;" />
+        <div class="restricted-msg" data-section="calendario" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Identifícate con tu cuenta institucional para consultar el calendario interno.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:240px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo visible tras acceder</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Excursión 5º Primaria (08/10)</li>
+                <li>Evaluación Inicial 3ºB (10/10)</li>
+                <li>Taller lectura 2ºA (12/10)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div class="calendar-nav">
           <button id="prev-month">&lt;</button>
           <span id="month-year"></span>
@@ -170,7 +183,6 @@
           <div class="day-header">Sáb</div>
           <div class="day-header">Dom</div>
         </div>
-  <div class="print-footer" style="display:none;">CEIP La Arboleda</div>
       </section>
 
       <!-- Sección de Anuncios -->
@@ -188,6 +200,20 @@
       <!-- Sección de Agenda -->
       <section id="seccion-agenda" class="seccion">
   <h2>Agenda de Reuniones</h2>
+        <div class="restricted-msg" data-section="agenda" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Inicia sesión para ver reuniones programadas, actas y documentación interna.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:240px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Claustro ordinario 15/10 12:30</li>
+                <li>Equipo ciclo 1º 18/10 10:00</li>
+                <li>COCOPE 24/10 13:15</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <form id="form-agenda" class="agenda-form">
           <input type="hidden" id="agenda-id">
           <input type="text" id="agenda-titulo" placeholder="Título de la reunión" required>
@@ -210,6 +236,20 @@
       <!-- Sección de Sustituciones -->
       <section id="seccion-sustituciones" class="seccion">
   <h2>Gestión de Sustituciones</h2>
+        <div class="restricted-msg" data-section="sustituciones" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Accede con tu cuenta para ver y registrar sustituciones programadas.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo de registro</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Sesión 2 · 3ºA · Matemáticas</li>
+                <li>Sesión 4 · Infantil 5B · Música</li>
+                <li>Sesión 5 · 6ºB · Inglés</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <label for="filtro-sust-curso" style="font-size:0.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#374151;">Filtrar curso</label>
@@ -336,6 +376,20 @@
       <!-- Sección de Encuestas -->
       <section id="seccion-encuestas" class="seccion">
   <h2>Encuestas Rápidas</h2>
+        <div class="restricted-msg" data-section="encuestas" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Debes iniciar sesión para participar y ver resultados internos.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>¿Fecha para sesión TIC?</li>
+                <li>¿Preferencia formación ABN?</li>
+                <li>Votación actividad semana cultural</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <form id="form-encuestas" style="margin-bottom:16px; display:flex; flex-direction:column; gap:10px; max-width:520px;">
           <input type="text" id="encuesta-pregunta" placeholder="Escribe tu pregunta aquí..." required style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;" />
           <div id="encuestas-opciones" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -356,6 +410,20 @@
       <!-- Sección de Tareas -->
       <section id="seccion-tareas" class="seccion">
         <h2>Mis Tareas</h2>
+        <div class="restricted-msg" data-section="tareas" style="display:none;padding:40px 20px;text-align:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:12px;margin:16px 0;">
+          <h3 style="margin:0 0 10px;font-size:1rem;color:#111827;">Acceso solo para docentes del CEIP La Arboleda</h3>
+          <p style="margin:0 0 14px;font-size:.8rem;color:#475569;">Identifícate para gestionar tus tareas personales y compartidas.</p>
+          <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.65rem;color:#64748b;">
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:10px;max-width:260px;text-align:left;">
+              <strong style="display:block;font-size:.6rem;letter-spacing:.5px;text-transform:uppercase;color:#0f172a;margin-bottom:4px;">Ejemplo tras acceso</strong>
+              <ul style="padding-left:16px;margin:4px 0 0;font-size:.65rem;line-height:1.2;">
+                <li>Programación docente (15/10)</li>
+                <li>Acta evaluación 2º trim</li>
+                <li>Reunión familias ciclo inicial</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <form id="form-tarea" style="margin-bottom:18px; display:flex; flex-direction:column; gap:10px; max-width:620px;">
           <div style="display:flex; flex-direction:column; gap:6px;">
             <label style="font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Tipo de título</label>
@@ -391,8 +459,16 @@
                 <option value="Compartida">Compartida</option>
               </select>
             </div>
+            <div id="tarea-compartir-wrapper" style="flex:3; min-width:260px; display:none; flex-direction:column; gap:4px;">
+              <label style="font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#374151;">Compartir con (docentes)</label>
+              <select id="tarea-compartir-emails" multiple size="4" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.7rem; min-height:100px;">
+                <!-- opciones dinámicas -->
+              </select>
+              <small style="font-size:.55rem;color:#64748b;">Mantén Ctrl/Cmd para seleccionar varios. Si se deja vacío se considera visible para todo el claustro.</small>
+            </div>
           </div>
           <textarea id="tarea-descripcion" placeholder="Descripción (opcional)" rows="3" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.8rem;"></textarea>
+          <input type="url" id="tarea-drive-link" placeholder="Enlace Drive / Docs (opcional)" pattern="https?://.*" style="padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.75rem;" />
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button type="submit" class="btn-accion" style="margin-top:0;">Añadir Tarea</button>
           </div>

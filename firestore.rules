@@ -10,11 +10,33 @@ service cloud.firestore {
     }
 
     function isOwner(resourceData) {
-      return isAuthenticated() && resourceData.createdBy == request.auth.uid;
+      return isAuthenticated() && (
+        resourceData.createdBy == request.auth.uid ||
+        (request.auth.token.email != null && resourceData.createdBy == request.auth.token.email)
+      );
     }
 
     function isAllowedUser() {
       return isAuthenticated() && (isAdmin() || request.auth.token.allowed == true || isAllowlistedEmail());
+    }
+
+  // (Se ha eliminado canUpdateShared para reducir warnings del linter)
+
+    // Toggle de progreso: sólo cambian (completada, fechaFin, estado, timestamp)
+    function isProgressToggleUpdate(oldData, newData) {
+      return newData.createdBy == oldData.createdBy &&
+             newData.titulo == oldData.titulo &&
+             (newData.descripcion == oldData.descripcion || (oldData.descripcion == null && newData.descripcion == '')) &&
+             newData.tipo == oldData.tipo &&
+             newData.driveLink == oldData.driveLink &&
+             (oldData.fechaLimite == newData.fechaLimite) &&
+             (oldData.compartirCon == newData.compartirCon || (oldData.compartirCon == null && newData.compartirCon == null)) &&
+             // campos permitidos a variar
+             newData.completada is bool &&
+             (newData.estado in ['Pendiente','En proceso','Enviada','Completada'] || newData.estado == null) &&
+             newData.timestamp is int &&
+             // fechaFin puede cambiar entre null e int
+             (newData.fechaFin == null || newData.fechaFin is int);
     }
 
     // Allowlist basada en emails exactos (ya que son cuentas del centro). No requerimos email_verified
@@ -92,12 +114,18 @@ service cloud.firestore {
              (d.completada is bool) &&
              (d.fechaFin == null || d.fechaFin is int) &&
              (d.fechaLimite == null || d.fechaLimite is int) &&
-             (d.estado == null || d.estado in ['Pendiente','En proceso','Enviada','Completada']);
+         (d.estado == null || d.estado in ['Pendiente','En proceso','Enviada','Completada']) &&
+         // compartirCon opcional: array de emails (strings cortos) máx 50
+         (d.compartirCon == null || (
+           d.compartirCon is list &&
+           d.compartirCon.size() <= 50
+         ));
     }
 
     // ENCUESTAS (match específico primero para que tenga precedencia sobre el genérico)
     match /artifacts/{appId}/public/data/encuestas/{docId} {
-      allow read: if true;
+      // Ahora sólo docentes (allowlist/admin) pueden leer encuestas
+      allow read: if isAllowedUser();
       allow create: if isAllowedUser() && hasValidBaseFields(request.resource.data) && validEncuestasCreate(request.resource.data);
       // Update puede ser: a) edición por creador/admin, b) voto (incrementos)
       // Sólo usuarios registrados permitidos (no anónimos) para votar ahora.
@@ -130,7 +158,10 @@ service cloud.firestore {
 
     // Rutas públicas genéricas (resto de colecciones)
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read: if true; // público de solo lectura
+      // Restringir lectura de colecciones sensibles a docentes autorizados
+      allow read: if (
+        !(collection in ['actividades','agenda','sustituciones','encuestas','tareas_compartidas'])
+      ) || isAllowedUser();
 
   // Escrituras: solo usuarios permitidos (allowed) o admin; updates/deletes además exigen propiedad o admin
   allow create: if (
@@ -138,13 +169,29 @@ service cloud.firestore {
         (collection != 'tareas_compartidas' && isAllowedUser() && isValidCreate(collection, request.resource.data))
       );
   allow update: if (
-        (collection == 'encuestas' && isAuthenticated() && isValidUpdate(collection, resource.data, request.resource.data)) ||
-        (collection == 'tareas_compartidas' && isAuthenticated() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data)) ||
-        (collection != 'encuestas' && collection != 'tareas_compartidas' && isAllowedUser() && (isAdmin() || isOwner(resource.data)) && isValidUpdate(collection, resource.data, request.resource.data))
+    (collection == 'encuestas' && isAuthenticated() && isValidUpdate(collection, resource.data, request.resource.data)) ||
+  (collection == 'tareas_compartidas' && isAuthenticated() && ((
+             // permisos completos
+             isAdmin() ||
+             isOwner(resource.data) ||
+             resource.data.createdBy == null ||
+             (resource.data.compartirCon is list && request.auth.token.email != null && request.auth.token.email in resource.data.compartirCon) ||
+             ((resource.data.compartirCon == null || (resource.data.compartirCon is list && resource.data.compartirCon.size()==0)) && isAllowedUser()) ||
+             // toggle de progreso limitado
+       (isAllowedUser() && isProgressToggleUpdate(resource.data, request.resource.data)) ||
+       // fallback: usuario allowed puede actualizar si mantiene createdBy y pasa validaciones
+       (isAllowedUser() && request.resource.data.createdBy == resource.data.createdBy)
+           ) && isValidUpdate(collection, resource.data, request.resource.data))) ||
+        (collection != 'encuestas' && collection != 'tareas_compartidas' && isAllowedUser() && (
+          isAdmin() || isOwner(resource.data) || ((resource.data.createdBy == null || resource.data.createdBy == '') && request.resource.data.createdBy == request.auth.uid)
+        ) && isValidUpdate(collection, resource.data, request.resource.data))
       );
   allow delete: if (
         (collection == 'tareas_compartidas' && isAuthenticated() && (isAdmin() || isOwner(resource.data))) ||
-        (collection != 'tareas_compartidas' && isAllowedUser() && (isAdmin() || isOwner(resource.data)))
+        (collection == 'documentos' && isAllowedUser() && (isAdmin() || isOwner(resource.data))) ||
+        (collection != 'tareas_compartidas' && collection != 'documentos' && isAllowedUser() && (
+          isAdmin() || isOwner(resource.data) || (resource.data.createdBy == null || resource.data.createdBy == '')
+        ))
       );
 
 
@@ -161,7 +208,14 @@ service cloud.firestore {
       }
 
       function isValidUpdate(col, oldData, newData) {
-        return newData.createdBy == oldData.createdBy &&
+        return (
+                 // Permitir normalizar createdBy si faltaba o estaba vacío en documento legacy
+                 ((oldData.createdBy == null || oldData.createdBy == '') && (
+                   newData.createdBy == request.auth.uid ||
+                   (request.auth.token.email != null && newData.createdBy == request.auth.token.email)
+                 )) ||
+                 newData.createdBy == oldData.createdBy
+               ) &&
                newData.timestamp is int && (
                  (col == 'documentos' && validDocumentos(newData)) ||
                  (col == 'anuncios' && validAnuncios(newData)) ||
@@ -190,7 +244,8 @@ service cloud.firestore {
          // tipo sólo dos valores permitidos
          (d.tipo in ['dentro','salida']) &&
          // duración opcional 0..1440
-         (d.duration == null || (d.duration is int && d.duration >= 0 && d.duration <= 1440)) &&
+  (d.estado == null || d.estado in ['Pendiente','En proceso','Enviada','Completada']) &&
+  (d.driveLink == null || (d.driveLink is string && d.driveLink.size() <= 500)) &&
          // curso: lista obligatoria (al menos 1) tamaño razonable <= 30
          (d.curso is list && d.curso.size() >= 1 && d.curso.size() <= 30) &&
          // personal opcional: lista limitada
@@ -243,7 +298,8 @@ service cloud.firestore {
         request.resource.data.createdBy == resource.data.createdBy &&
         request.resource.data.timestamp is int &&
         validTarea(request.resource.data);
-      allow delete: if request.auth != null && request.auth.uid == userId && resource.data.createdBy == request.auth.uid;
+  // Delete relajado: basta que el usuario sea dueño del path (legacy docs sin createdBy consistente)
+  allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // ESTADO DE NOTIFICACIONES LEÍDAS POR USUARIO

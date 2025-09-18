@@ -38,6 +38,14 @@ cmd /c firebase deploy --only hosting --project organizacioncentro-d3cd7
 
 Tras desplegar, forzar recarga (Ctrl+F5) para evitar caché.
 
+### Desplegar sólo reglas Firestore (imprescindible tras cambios en `firestore.rules`)
+
+```
+cmd /c firebase deploy --only firestore:rules --project organizacioncentro-d3cd7
+```
+
+Después fuerza recarga dura (Ctrl+F5). Si el navegador mantiene una versión antigua de `app.js`, abre DevTools > Network y marca "Disable cache".
+
 ## Emuladores locales
 
 ## Ejecutar emuladores localmente
